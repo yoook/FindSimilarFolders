@@ -27,7 +27,7 @@ def _gethash(filename, blocksize=65536):
 	return hasher.hexdigest()
 
 
-def create_index(rootdir, outfile, start_at="", start_after=True, exclude=[], exclude_pattern=[], rel_to=None, size_digits=13, verbosity=2):
+def create_index(rootdir, outfile, errorfile, start_at="", start_after=True, exclude=[], exclude_pattern=[], rel_to=None, size_digits=13, verbosity=2):
 	""" walk down the tree from rootdir (exclude 'exclude'. start at 'start_at' to continue
 	a previous run (if Start_after==True, start with the next file, otherwise start with the given file))
 	for each file calculate its checksum. append file statistics to 'outfile'
@@ -262,3 +262,48 @@ def collect_folders(rootdir, outfile, start_at="", start_after=True, exclude=[],
 		outfile.write(line+'\n')
 		if verbosity >= 3:
 			print(line)
+
+
+
+def _get_fileinfo(string):
+	splitstring = string.split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
+	return (splitstring[0].strip(), float(splitstring[1]), splitstring[2].strip(), splitstring[3].strip())
+
+
+def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
+	""" read all indexfiles into one large list,
+	sort this list by the hashes and filesizes
+	and print all duplicates to the outfile"""
+
+	filelist = []
+
+	# read all indexfiles
+	if verbosity >= 2: print ("reading files...")
+	for file in indexfiles:
+		if verbosity >= 1:
+			print(file)
+		with open(file, 'r') as f:
+			for line in f:
+				filelist.append(_get_fileinfo(line))
+
+	# sort files
+	if verbosity >=2: print("sorting files by size and checksum...")
+	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2])
+
+	# search for duplicates
+	if verbosity >=2: print("searching for duplicates...")
+	old_entry = ("", 0., "", "")
+	first = True
+	for entry in filelist:
+		if entry[0] == old_entry[0] and entry[2] == old_entry[2]:
+			line = ""
+			if first:
+				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
+				line += "{:10.4f}\t{}\n".format(old_entry[1], old_entry[3])
+				first = False
+			line +="{:10.4f}\t{}\n".format(entry[1], entry[3])
+			outfile.write(line)
+			if verbosity >= 3: print(line)
+		else:
+			first = True
+		old_entry = entry

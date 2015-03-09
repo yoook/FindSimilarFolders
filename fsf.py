@@ -19,7 +19,7 @@
 
 import argparse
 
-from fsf_core import create_index, collect_folders
+from fsf_core import create_index, collect_folders, find_duplicate_files
 
 
 def prepare_create_index(args):	#todo: integrate collect_folders in create_index
@@ -47,7 +47,17 @@ def prepare_create_index(args):	#todo: integrate collect_folders in create_index
 
 	for rootdir in args.rootdir:
 		with open(args.index_file, 'a') as indexFile:
-			create_index(rootdir, indexFile, args.log_file, start_at, start_after, exclude, exclude_pattern, args.relative_to,  size_digits=13, verbosity=args.verbose)
+			create_index(rootdir = rootdir,
+							outfile = indexFile,
+							errorfile = args.log_file,
+							start_at = start_at,
+							start_after = start_after,
+							exclude = exclude,
+							exclude_pattern = exclude_pattern,
+							rel_to = args.relative_to,
+							size_digits = 13,
+							verbosity = args.verbose)
+
 
 def prepare_collect_folders(args):
 	print('collect folders')
@@ -88,6 +98,12 @@ def prepare_collect_folders(args):
 
 def prepare_duplicate_files(args):
 	print('find duplicate files')
+
+	with open(args.duplicatelist, 'w') as duplicateList:
+		find_duplicate_files(indexfiles = args.index_file,
+								outfile=duplicateList,
+								verbosity=args.verbose)
+
 
 def prepare_similar_folders(args):
 	print('find similar folders')
@@ -191,7 +207,7 @@ if __name__ == "__main__":
 								help='find duplicate files in the index')
 
 	parser_duplicate_files.add_argument('index_file',
-								nargs='+',						#todo: make it work with more than one file
+								nargs='+',
 								help='file(s) to look for duplikates. More than one file may be given')
 	parser_duplicate_files.add_argument('duplicatelist',
 								help='file to write the duplikates to')
