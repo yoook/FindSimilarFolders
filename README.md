@@ -22,17 +22,17 @@ produced by **fsf.py createIndex**<br>
 contains 4 tab-separated columns<br>
 example:
 
-size  | mtime  |  hash   | path
------:|-------:|:-------:|:------
- 383  | 1425734526.3954 | b8e70a943cb82fd03805fb42e31857ea24aa40bb | path/to/file
+size  | mtime           |              hash                        | path
+-----:|----------------:|:----------------------------------------:|:------
+`383` |`1425734526.3954`|`b8e70a943cb82fd03805fb42e31857ea24aa40bb`|`path/to/file`
  
 ###collection file
 produced by **fsf.py collectFolders**<br>
 contains 4 tab-separated columns<br>
  
-serial number | path | number of elements | number of files
--------------:|:----:|:------------------:|:--------------:
- 1             | /path/to/dir |  8          |  5
+serial number | path         | # elements | # files
+-------------:|:------------:|:----------:|:--------------:
+ `1`          |`/path/to/dir`| `8`        |  `5`
  
 the second last column counts the total number of elements (but not subfolders) in the
 folder while the last column only counts accessable files. It excludes
