@@ -43,14 +43,14 @@ produced by **fsf.py duplicateFiles**
 contains blocks of several lines. Blocks are separated by blank lines.<br>
 the lines inside the blocks contain of several tab-separated columns:<br>
 * the first line of each block contains of the `size` and the `hash`of all files in this block
-* all other lines list duplicate files. they contain of `mtime` and `path`of the files
+* all other lines list duplicate files. they contain of `mtime`, `filename` and `path`of the files
 
 example:
 ```
   42        b8e70a943cb82fd03805fb42e31857ea24aa40bb
-1425734526.3954  /path/to/first/file
-1425755949.3846  /path/to/second/file
-1289468796.4897  /a/different/path/to/the/third/file
+1425734526.3954  filename1  /path/to/first/file
+1425755949.3846  filename2  /path/to/second/file
+1289468796.4897  filename3  /a/different/path/to/the/third/file
 ```
 
 ###similar folders
