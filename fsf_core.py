@@ -267,7 +267,10 @@ def collect_folders(rootdir, outfile, start_at="", start_after=True, exclude=[],
 
 def _get_fileinfo(string):
 	splitstring = string.split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
-	return (splitstring[0].strip(), float(splitstring[1]), splitstring[2].strip(), splitstring[3].strip())
+	path = pathlib.PurePath(splitstring[3])
+
+	#		size                    mtime                  hash                    path         filename
+	return (splitstring[0].strip(), float(splitstring[1]), splitstring[2].strip(), path.parent, path.name)
 
 
 def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
@@ -288,7 +291,7 @@ def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
 
 	# sort files
 	if verbosity >=2: print("sorting files by size and checksum...")
-	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2])
+	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2]) # sort my "size<space>hash"
 
 	# search for duplicates
 	if verbosity >=2: print("searching for duplicates...")
@@ -299,9 +302,9 @@ def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
 			line = ""
 			if first:
 				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
-				line += "{:10.4f}\t{}\n".format(old_entry[1], old_entry[3])
+				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4].rstrip('\n'))
 				first = False
-			line +="{:10.4f}\t{}\n".format(entry[1], entry[3])
+			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4].rstrip('\n'))
 			outfile.write(line)
 			if verbosity >= 3: print(line)
 		else:
