@@ -19,7 +19,7 @@
 
 import argparse
 
-from fsf_core import create_index, collect_folders, find_duplicate_files
+from fsf_core import create_index, collect_folders, find_duplicate_files, find_similar_folders
 
 
 def prepare_create_index(args):	#todo: integrate collect_folders in create_index
@@ -107,6 +107,11 @@ def prepare_duplicate_files(args):
 
 def prepare_similar_folders(args):
 	print('find similar folders')
+
+	with open(args.similarfolderslist, 'w') as similarFoldersList:
+		find_similar_folders(indexfiles = args.index_file,
+								outfile=similarFoldersList,
+								verbosity=args.verbose)
 
 
 if __name__ == "__main__":
@@ -208,7 +213,7 @@ if __name__ == "__main__":
 
 	parser_duplicate_files.add_argument('index_file',
 								nargs='+',
-								help='file(s) to look for duplikates. More than one file may be given')
+								help='file(s) to look for duplikates in. More than one file may be given')
 	parser_duplicate_files.add_argument('duplicatelist',
 								help='file to write the duplikates to')
 	parser_duplicate_files.add_argument('-v', '--verbose',
@@ -223,6 +228,16 @@ if __name__ == "__main__":
 	parser_similar_folders = subparsers.add_parser('similarFolders',
 								aliases=['sf'],
 								help='find similar folders (folders that contain many duplicate files)')
+
+	parser_similar_folders.add_argument('index_file',
+								nargs='+',
+								help='file(s) to look for duplikates in. More than one file may be given')
+	parser_similar_folders.add_argument('similarfolderslist',
+								help='file to write the findings to')
+	parser_similar_folders.add_argument('-v', '--verbose',
+								nargs='?', const='2', default='1',
+								type=int, choices=range(0,4),	#todo: what range suits?
+								help='level of verbosity')
 
 	parser_similar_folders.set_defaults(func=prepare_similar_folders)
 

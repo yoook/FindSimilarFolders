@@ -266,7 +266,7 @@ def collect_folders(rootdir, outfile, start_at="", start_after=True, exclude=[],
 
 
 def _get_fileinfo(string):
-	splitstring = string.split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
+	splitstring = string.rstrip('\n').split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
 	path = pathlib.PurePath(splitstring[3])
 
 	#		size                    mtime                  hash                    path         filename
@@ -302,11 +302,126 @@ def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
 			line = ""
 			if first:
 				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
-				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4].rstrip('\n'))
+				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4])
 				first = False
-			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4].rstrip('\n'))
+			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4])
 			outfile.write(line)
 			if verbosity >= 3: print(line)
 		else:
 			first = True
 		old_entry = entry
+
+
+def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
+	""" read all indexfiles into one large list,
+	sort this list by the hashes and filesizes
+	and print all duplicates to the outfile"""
+
+	filelist = []
+
+	# read all indexfiles
+	if verbosity >= 2: print ("reading files...")
+	for file in indexfiles:
+		if verbosity >= 1:
+			print(file)
+		with open(file, 'r') as f:
+			for line in f:
+				filelist.append(_get_fileinfo(line))
+
+	# filelist now contains tupel(size, mtime, hash, path, filename) of all files read
+
+
+	# sort files, reverse order
+	if verbosity >=2: print("sorting files by size and checksum...")
+	filelist.sort(key = lambda x: x[0].rjust(size_digits) + '_' + x[2], reverse=True ) # sort by "size_hash"
+
+	# search for duplicates
+	if verbosity >=2: print("searching for duplicates...")
+	prev_entry = ("", 0., "", "")
+	first = True
+	doublelist = []
+	tmplist=[]
+	while filelist:
+		entry = filelist.pop()
+		if entry[0] == prev_entry[0] and entry[2] == prev_entry[2]:
+			if first:
+				first = False
+				tmplist.append((prev_entry[3], prev_entry[4]))	#safe just path+name to a new list
+			tmplist.append((entry[3], entry[4]))
+		else:
+			first = True
+			if tmplist:
+				tmplist.sort()
+				doublelist.append(tmplist.copy())	# make a copy of tmplist!
+				tmplist.clear()
+		prev_entry = entry
+
+	if tmplist:
+		tmplist.sort()
+		doublelist.append(tmplist.copy())	# make a copy of tmplist!
+		tmplist.clear()
+
+	del(filelist) #might be unneccessary, as filelist should be empty by now anyway, but might help garbage collction
+
+	# doublelist now contains sublists.
+	# each sublist contains tupel(path, filename) of identical files
+	# each sublist is sorted by the path
+
+
+	# "transpose" the sublists of doublelist and save as combined_long
+	combined_long = []
+	while doublelist:
+		entry = doublelist.pop()
+		combined_long.append([[i[0] for i in entry], [i[1] for i in entry]])
+
+	del(doublelist)	#might be unneccessary, as doublelist should be empty by now anyway, but might help garbage collction
+
+	# combined_long now contains sublists.
+	# each sublist is [[path/to/file1, path/to/file2, path/to/file3, ...], [file1, file2, file3, ...]]
+
+
+	# collect different files of the same folders in one list, save as combined
+	if verbosity >=2: print("collecting duplicates of same folder...")
+	entry = combined_long.pop()
+	tmplist=[]
+	tmppaths=[]
+	combined = []
+
+	while combined_long:
+		next_entry = combined_long.pop()
+		tmppaths = entry[0].copy()
+		tmplist.append(entry[1])
+		print(entry)
+
+
+		if entry[0] != next_entry[0]:
+			combined.append([tmppaths.copy(), tmplist.copy()])
+			tmppaths.clear()
+			tmplist.clear()
+		else:
+			print('equal')
+
+		entry = next_entry
+
+	tmppaths = entry[0].copy()
+	tmplist.append(entry[1])
+	combined.append([tmppaths.copy(), tmplist.copy()])
+	tmppaths.clear()
+	tmplist.clear()
+
+	del(combined_long)
+
+	# combined now contains two-element sublists
+	# the first element of the sublist is a (subsub)list containing the paths of all involved folders
+	# the second element is a subsublist containing subsubsublists of identical files
+	# one element of combined looks like:
+	# [[path/to/folder1, path/to/folder2, path/to/folder3, ...], [[file1, file2, file3, ...], [filea, fileb, filec, ...], [filex, filey, filez, ...], ... ]]
+	# where file1-3 are identical (filea-c and filex-z respectively)
+	# and file1, filea and filex are in folder1 (file[2,b,y] in folder2 and file[3,c,z] in folder 3)
+
+
+	print()
+	print()
+
+
+	for i in combined: print(i)
