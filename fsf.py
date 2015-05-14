@@ -16,6 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# verbosity guidelines:
+# 	0:	print nothing except errors
+#	1:	print rought progress
+#	2:	print detailed progress
+#	3:	print everything
+
+#todo: harden commandline interface: don't crash, if called with invalid/none options/arguments
 
 import argparse
 
@@ -218,7 +225,7 @@ if __name__ == "__main__":
 								help='file to write the duplikates to')
 	parser_duplicate_files.add_argument('-v', '--verbose',
 								nargs='?', const='2', default='1',
-								type=int, choices=range(0,4),	#todo: what range suits?
+								type=int, choices=range(0,4),
 								help='level of verbosity')
 
 	parser_duplicate_files.set_defaults(func=prepare_duplicate_files)
@@ -236,7 +243,7 @@ if __name__ == "__main__":
 								help='file to write the findings to')
 	parser_similar_folders.add_argument('-v', '--verbose',
 								nargs='?', const='2', default='1',
-								type=int, choices=range(0,4),	#todo: what range suits?
+								type=int, choices=range(0,4),
 								help='level of verbosity')
 
 	parser_similar_folders.set_defaults(func=prepare_similar_folders)

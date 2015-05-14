@@ -281,20 +281,20 @@ def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
 	filelist = []
 
 	# read all indexfiles
-	if verbosity >= 2: print ("reading files...")
+	if verbosity >= 1: print ("reading files...")
 	for file in indexfiles:
-		if verbosity >= 1:
+		if verbosity >= 2:
 			print(file)
 		with open(file, 'r') as f:
 			for line in f:
 				filelist.append(_get_fileinfo(line))
 
 	# sort files
-	if verbosity >=2: print("sorting files by size and checksum...")
+	if verbosity >=1: print("sorting files by size and checksum...")
 	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2]) # sort my "size<space>hash"
 
 	# search for duplicates
-	if verbosity >=2: print("searching for duplicates...")
+	if verbosity >=1: print("searching for duplicates...")
 	old_entry = ("", 0., "", "")
 	first = True
 	for entry in filelist:
@@ -320,7 +320,7 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	filelist = []
 
 	# read all indexfiles
-	if verbosity >= 2: print ("reading files...")
+	if verbosity >= 1: print ("reading files...")
 	for file in indexfiles:
 		if verbosity >= 1:
 			print(file)
@@ -332,11 +332,11 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 
 	# sort files, reverse order
-	if verbosity >=2: print("sorting files by size and checksum...")
+	if verbosity >=1: print("sorting files by size and checksum...")
 	filelist.sort(key = lambda x: x[0].rjust(size_digits) + '_' + x[2], reverse=True ) # sort by "size_hash"
 
 	# search for duplicates
-	if verbosity >=2: print("searching for duplicates...")
+	if verbosity >=1: print("searching for duplicates...")
 	prev_entry = ("", 0., "", "")
 	first = True
 	doublelist = []
@@ -381,7 +381,7 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 
 	# collect different files of the same folders in one list, save as combined
-	if verbosity >=2: print("collecting duplicates of same folder...")
+	if verbosity >=1: print("collecting duplicates of same folder...")
 	entry = combined_long.pop()
 	tmplist=[]
 	tmppaths=[]
