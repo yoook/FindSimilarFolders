@@ -254,7 +254,7 @@ def collect_folders(rootdir, outfile, start_at="", start_after=True, exclude=[],
 		line = "{serial: {serdigits}d}\t{path}\t{numfiles: {digits}d}\t{numrealfiles: {digits}d}".format(
 					serdigits = size_digits + 3,
 					digits = size_digits,
-					serial =serial,
+					serial = serial,
 					numfiles = len(files),
 					numrealfiles = -1 if fast else number_real_files,
 					path = ( os.path.relpath(root, rel_to) if rel_to!=None else root))
@@ -361,7 +361,7 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		doublelist.append(tmplist.copy())	# make a copy of tmplist!
 		tmplist.clear()
 
-	del(filelist) #might be unneccessary, as filelist should be empty by now anyway, but might help garbage collction
+	del(filelist) # might be unneccessary, as filelist should be empty by now anyway, but might help garbage collction
 
 	# doublelist now contains sublists.
 	# each sublist contains tupel(path, filename) of identical files

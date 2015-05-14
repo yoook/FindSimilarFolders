@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
 	parser_collect_folders = subparsers.add_parser('collectFolders',
 								aliases=['cf'],
-								help='create a list of all folders. This should be done when creating the index, but can be done standalon as well with this command')
+								help='create a list of all folders. This should be done when creating the index, but can be done standalone as well with this command')
 
 	parser_collect_folders.add_argument('rootdir',
 								nargs='+',
