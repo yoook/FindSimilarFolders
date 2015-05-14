@@ -391,15 +391,11 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		next_entry = combined_long.pop()
 		tmppaths = entry[0].copy()
 		tmplist.append(entry[1])
-		print(entry)
-
 
 		if entry[0] != next_entry[0]:
 			combined.append([tmppaths.copy(), tmplist.copy()])
 			tmppaths.clear()
 			tmplist.clear()
-		else:
-			print('equal')
 
 		entry = next_entry
 
@@ -419,9 +415,26 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	# where file1-3 are identical (filea-c and filex-z respectively)
 	# and file1, filea and filex are in folder1 (file[2,b,y] in folder2 and file[3,c,z] in folder 3)
 
+	if verbosity >= 1:
+		print("output...")
+		if verbosity >= 2:
+			print()
 
-	print()
-	print()
 
+	for dupset in combined:
+		line = ""
+		for path in dupset[0]:
+			line += str(path) + '\n'
+		if verbosity == 2:
+			print(line)
+		line += "--------\n"
+		for files in dupset[1]:
+			for file in files:
+				line += file + '\t'
+			line.rstrip('\t')
+			line += '\n'
+		line += '\n'
+		if verbosity >= 3:
+			print(line)
 
-	for i in combined: print(i)
+		outfile.write(line)
