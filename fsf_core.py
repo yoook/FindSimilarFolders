@@ -379,6 +379,13 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	# combined_long now contains sublists.
 	# each sublist is [[path/to/file1, path/to/file2, path/to/file3, ...], [file1, file2, file3, ...]]
 
+	if verbosity >= 1:
+		print("sorting list of duplicats by their folders...")
+
+	combined_long.sort(key = lambda x: x[0]) # sort BY list of paths (NOT: sort THE list of paths)
+
+	# combined_long is now sorteted by the complete tuple (i.e. sublist) of paths
+
 
 	# collect different files of the same folders in one list, save as combined
 	if verbosity >=1: print("collecting duplicates of same folder...")
