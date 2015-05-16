@@ -273,8 +273,8 @@ def _get_fileinfo(string):
 	splitstring = string.rstrip('\n').split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
 	path = pathlib.PurePath(splitstring[3])
 
-	#		size                    mtime                  hash                    path         filename
-	return (splitstring[0].strip(), float(splitstring[1]), splitstring[2].strip(), path.parent, path.name)
+	#		size                           hash                    path (as tuple) filename
+	return (splitstring[0].strip() + ' ' + splitstring[2].strip(), path.parts[:-1], path.name)
 
 def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 
@@ -290,32 +290,31 @@ def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 
 	return filelist
 
-def _collect_duplicate_files(filelist, verbosity=1, size_digits=13):	# todo: documentation
+def _collect_duplicate_files(filelist, verbosity=1):	# todo: documentation
 	# ! filelist will not come back. Make a copy, if needed any more
-	# size_digits: how many digits has the filesize of the files at most. better be to large than to small
 
 	# sort files by "size<space>hash"
 	if verbosity >= 1:
 		print("sorting files by size and checksum")
 
-	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2], reverse=True)
+	filelist.sort(key = lambda x: x[0], reverse=True)
 
 	# search for duplicates
 	if verbosity >=1:
 		print("searching for duplicates...")
 
-	prev_entry = ("", 0., "", "", "")	#size, mtime, hash, path, filename
+	prev_entry = ("", (), "")	#size, mtime, hash, path, filename
 	first = True
 	doublelist = []
 	tmplist = []
 
 	while filelist:
 		entry = filelist.pop()
-		if entry[0] == prev_entry[0] and entry[2] == prev_entry[2]:
+		if entry[0] == prev_entry[0]:
 			if first:
 				first = False
-				tmplist.append((prev_entry[3], prev_entry[4]))	# just safe path + name to new list
-			tmplist.append((entry[3], entry[4]))
+				tmplist.append((prev_entry[1], prev_entry[2]))	# just safe path + name to new list
+			tmplist.append((entry[1], entry[2]))
 
 		else:
 			first = True
@@ -493,7 +492,7 @@ def measure_time(funcname, *opts, **args):
 	return ret
 
 
-def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
+def find_similar_folders(indexfiles, outfile, verbosity=1):
 	""" read all indexfiles into one large list,
 	sort this list by the hashes and filesizes
 	and print all duplicates to the outfile"""
@@ -507,7 +506,7 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 			}
 
 	filelist = _read_indexfiles(indexfiles, verbosity)
-	# filelist now contains tupel(size, mtime, hash, path, filename) of all files read
+	# filelist now contains tupel(size_hash, (path, to, file), filename) of all files read
 
 	if "combined" in task or "paired" in task:	# collect duplicate files
 		doublelist = measure_time(_collect_duplicate_files, filelist, verbosity)
@@ -576,8 +575,9 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 
 # todo: whenever combining something: check, that list is long enough
+# todo: verbosity: defin/assign a level, where the number of datasets is shown
 
-def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
+def find_duplicate_files(indexfiles, outfile, verbosity=1):
 	""" read all indexfiles into one large list,
 	sort this list by the hashes and filesizes
 	and print all duplicates to the outfile"""
@@ -590,20 +590,20 @@ def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
 
 	# sort files
 	if verbosity >=1: print("sorting files by size and checksum...")
-	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2]) # sort my "size<space>hash"
+	filelist.sort(key = lambda x: x[0])
 
 	# search for duplicates
 	if verbosity >=1: print("searching for duplicates...")
-	old_entry = ("", 0., "", "", "")
+	old_entry = ("", (), "")
 	first = True
 	for entry in filelist:
-		if entry[0] == old_entry[0] and entry[2] == old_entry[2]:
+		if entry[0] == old_entry[0]:
 			line = ""
 			if first:
-				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
-				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4])
+				line += '\n'  + entry[0] + '\n'
+				line += "{name}\t{path}\n".format(path=pathlib.PurePath(*old_entry[1]), name=old_entry[2])
 				first = False
-			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4])
+			line +="{name}\t{path}\n".format(path=pathlib.PurePath(*entry[1]), name=entry[2])
 			outfile.write(line)
 			if verbosity >= 3: print(line)
 		else:
