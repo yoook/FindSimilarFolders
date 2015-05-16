@@ -18,6 +18,10 @@
 import os
 import hashlib
 import pathlib
+import sys
+
+from time import process_time	# todo: remove later, only needed for optimisation
+import resource					# for memory monitoring. might be removed later
 
 def _gethash(filename, blocksize=65536):
 	hasher=hashlib.sha1()
@@ -455,6 +459,132 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		outfile.write(line)
 	'''
 
+
+	# break the (potentially long) tupel of different folders with same files from 'combined'
+	# into pairs, stored in 'paired_long'
+	infotext = "combining folders to pairs..."
+	if verbosity >= 1:
+		sys.stdout.write(infotext)
+		sys.stdout.flush()
+
+	paired_long = []
+	ready =  len(combined)
+
+
+	# todo: this consumes loads of memory! make it more efficient or use hdd instead
+	while combined:
+		tmppaths, tmpfiles = combined.pop()		# todo: remove 0 -> pop(), not pop(0), might be faster
+
+#		print(tmppaths)
+#		print(tmpfiles)
+#		print('\n')
+	#	i = 0
+	#	for path_i in tmppaths:
+	#		j = 0
+	#		for path_j in tmppaths:
+	#			if j <= i:
+	#				j += 1
+	#				continue
+				#paired_long.append([(path_i, path_j), [(f[i],f[j]) for f in tmpfiles]])
+	#			paired_long.append([(tmppaths[i], tmppaths[j]), [(f[i], f[j]) for f in tmpfiles]])
+	#			j += 1
+	#		i += 1
+
+		for i in range(len(tmppaths)):
+			for j in range(i+1, len(tmppaths)):
+	#			pass
+				paired_long.append([(tmppaths[i], tmppaths[j]), [(f[i], f[j]) for f in tmpfiles]])
+	#			paired_long.append([(tmppaths[i], tmppaths[j]), list(zip(*list(zip(*tmpfiles))[i:j+1:j-i]))])
+
+		tmppaths.clear()
+		tmpfiles.clear()
+		if verbosity >= 1:
+			sys.stdout.write('\r'+infotext + "  " + str(round((1 - float(len(combined))/ready) * 100, 1)) + " %  " + \
+						str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB  " )
+			sys.stdout.flush()
+
+	if verbosity >= 1:
+		print('\r' + infotext + "         ")
+	del(combined)
+
+
+	# paired_long is similar to combined, but with only 2 folders. one element of paired_long looks like:
+	# [(path/to/folder1, path/to/folder2), [(file1, file2), (filea, fileb), (filex, filey), ...]]
+
+
+	if verbosity >= 1:
+		print("sorting list of pairs by folders...")
+
+	paired_long.sort(key=lambda x:x[0])
+
+
+	# combine files of identical folder-pairs
+	infotext = "combining identical pairs..."
+
+	if verbosity >= 1:
+		sys.stdout.write(infotext)
+		sys.stdout.flush()
+
+	paired = []
+	ready = len(paired_long)
+	i = 0
+
+	if len(paired_long) >= 2:
+		prev_entry = paired_long.pop()
+		tmplist = prev_entry[1]
+		entry = []
+		while paired_long:
+			entry = paired_long.pop()
+			if prev_entry[0] == entry[0]:
+				tmplist.extend(entry[1])
+			else:
+				paired.append([prev_entry[0], tmplist.copy()])
+				tmplist.clear()
+				tmplist = entry[1]
+
+			prev_entry = entry
+			if verbosity >= 1 and i > 100:
+				sys.stdout.write('\r'+infotext + "  " + str(round((1 - float(len(paired_long))/ready) * 100, 1)) + " %" + \
+						str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ) + " MB")
+				sys.stdout.flush()
+				i = 0
+			i += 1
+
+		if prev_entry[0] == entry[0]:
+			paired.append([prev_entry[0], tmplist.copy()])
+		else:
+			paired.append([entry[0], entry[1]])
+
+	else:
+		paired = paired_long.copy()
+
+	if verbosity >= 1:
+		print('\r' + infotext + "                  ")
+	del(paired_long)
+
+	# the structure of 'paired' is identical to 'paired_long'. The difference is, that 'paired_long' may contain
+	# the same pair of paths several times and in 'paired' each pair of paths exists only once with all files
+	# collected in this entry
+
+
+	if verbosity >= 1:
+		print("output...")
+		if verbosity >= 2:
+			print()
+
+
+	for dupset in paired:
+		line = str(dupset[0][0]) + '\n' + str(dupset[0][1]) + '\n'
+		if verbosity == 2:
+			print(line)
+		line += "--------\n"
+		for files in dupset[1]:
+			line += files[0] + '\t' + files[1] + '\n'
+		line += '\n'
+		if verbosity >= 3:
+			print(line)
+
+		outfile.write(line)
 
 
 # todo: whenever combining something: check, that list is long enough
