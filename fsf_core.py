@@ -30,7 +30,7 @@ def _gethash(filename, blocksize=65536):
 			hasher.update(block)
 	return hasher.hexdigest()
 
-
+# todo: what about empty folders? what about symbolic links?
 def create_index(rootdir, outfile, errorfile, start_at="", start_after=True, exclude=[], exclude_pattern=[], rel_to=None, size_digits=13, verbosity=2):
 	""" walk down the tree from rootdir (exclude 'exclude'. start at 'start_at' to continue
 	a previous run (if Start_after==True, start with the next file, otherwise start with the given file))
@@ -282,7 +282,7 @@ def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 	if verbosity >= 1:
 		print("reading files...")
 	for file in indexfiles:
-		if (verbosity >= 1 and len(indexfiles) >1) or verbosity >= 2:
+		if verbosity >= 2:
 			print(file)
 		with open(file, 'r') as f:
 			for line in f:
@@ -488,7 +488,8 @@ def measure_time(funcname, *opts, **args):
 
 	t0 = process_time()
 	ret = funcname(*opts, **args)
-	print("\033[93m" + funcname.__name__ + ": " + str(round(process_time() - t0, 3)) + " s\033[0m")
+	print("\033[93m" + funcname.__name__ + ": " + str(round(process_time() - t0, 3)) + " s,  now " +
+				str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
 	return ret
 
 

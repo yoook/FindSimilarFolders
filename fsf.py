@@ -108,17 +108,17 @@ def prepare_duplicate_files(args):
 
 	with open(args.duplicatelist, 'w') as duplicateList:
 		find_duplicate_files(indexfiles = args.index_file,
-								outfile=duplicateList,
-								verbosity=args.verbose)
+								outfile = duplicateList,
+								verbosity = args.verbose)
 
 
 def prepare_similar_folders(args):
 	print('find similar folders')
 
 	with open(args.similarfolderslist, 'w') as similarFoldersList:
-		find_similar_folders(indexfiles = args.index_file,
-								outfile=similarFoldersList,
-								verbosity=args.verbose)
+		find_similar_folders(indexfiles = args.index_files,
+								outfile = similarFoldersList,
+								verbosity = args.verbose)
 
 
 def prepare_similar_trees(args):
@@ -245,7 +245,7 @@ if __name__ == "__main__":
 								aliases=['sf'],
 								help='find similar folders (folders that contain many duplicate files)')
 
-	parser_similar_folders.add_argument('index_file',
+	parser_similar_folders.add_argument('index_files',
 								nargs='+',
 								help='file(s) to look for duplikates in. More than one file may be given')
 	parser_similar_folders.add_argument('similarfolderslist',
