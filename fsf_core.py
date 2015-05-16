@@ -276,102 +276,65 @@ def _get_fileinfo(string):
 	#		size                    mtime                  hash                    path         filename
 	return (splitstring[0].strip(), float(splitstring[1]), splitstring[2].strip(), path.parent, path.name)
 
-
-def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
-	""" read all indexfiles into one large list,
-	sort this list by the hashes and filesizes
-	and print all duplicates to the outfile"""
+def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 
 	filelist = []
-
-	# read all indexfiles
-	if verbosity >= 1: print ("reading files...")
+	if verbosity >= 1:
+		print("reading files...")
 	for file in indexfiles:
-		if verbosity >= 2:
+		if (verbosity >= 1 and len(indexfiles) >1) or verbosity >= 2:
 			print(file)
 		with open(file, 'r') as f:
 			for line in f:
 				filelist.append(_get_fileinfo(line))
 
-	# sort files
-	if verbosity >=1: print("sorting files by size and checksum...")
-	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2]) # sort my "size<space>hash"
+	return filelist
+
+def _collect_duplicate_files(filelist, verbosity=1, size_digits=13):	# todo: documentation
+	# ! filelist will not come back. Make a copy, if needed any more
+	# size_digits: how many digits has the filesize of the files at most. better be to large than to small
+
+	# sort files by "size<space>hash"
+	if verbosity >= 1:
+		print("sorting files by size and checksum")
+
+	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2], reverse=True)
 
 	# search for duplicates
-	if verbosity >=1: print("searching for duplicates...")
-	old_entry = ("", 0., "", "")
-	first = True
-	for entry in filelist:
-		if entry[0] == old_entry[0] and entry[2] == old_entry[2]:
-			line = ""
-			if first:
-				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
-				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4])
-				first = False
-			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4])
-			outfile.write(line)
-			if verbosity >= 3: print(line)
-		else:
-			first = True
-		old_entry = entry
+	if verbosity >=1:
+		print("searching for duplicates...")
 
-
-def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
-	""" read all indexfiles into one large list,
-	sort this list by the hashes and filesizes
-	and print all duplicates to the outfile"""
-
-	#todo: somehow handle identical files in one folder, as they mess up everything a bit
-
-	filelist = []
-
-	# read all indexfiles
-	if verbosity >= 1: print ("reading files...")
-	for file in indexfiles:
-		if verbosity >= 1:
-			print(file)
-		with open(file, 'r') as f:
-			for line in f:
-				filelist.append(_get_fileinfo(line))
-
-	# filelist now contains tupel(size, mtime, hash, path, filename) of all files read
-
-
-	# sort files, reverse order
-	if verbosity >=1: print("sorting files by size and checksum...")
-	filelist.sort(key = lambda x: x[0].rjust(size_digits) + '_' + x[2], reverse=True ) # sort by "size_hash"
-
-	# search for duplicates
-	if verbosity >=1: print("searching for duplicates...")
-	prev_entry = ("", 0., "", "")
+	prev_entry = ("", 0., "", "", "")	#size, mtime, hash, path, filename
 	first = True
 	doublelist = []
-	tmplist=[]
+	tmplist = []
+
 	while filelist:
 		entry = filelist.pop()
 		if entry[0] == prev_entry[0] and entry[2] == prev_entry[2]:
 			if first:
 				first = False
-				tmplist.append((prev_entry[3], prev_entry[4]))	#safe just path+name to a new list
+				tmplist.append((prev_entry[3], prev_entry[4]))	# just safe path + name to new list
 			tmplist.append((entry[3], entry[4]))
+
 		else:
 			first = True
 			if tmplist:
-				tmplist.sort()
+				tmplist.sort()						# we want the identical files sorted by path, then name
 				doublelist.append(tmplist.copy())	# make a copy of tmplist!
 				tmplist.clear()
 		prev_entry = entry
 
-	if tmplist:
+	if tmplist:		# there might be something leftover in the tmplist from the last round of the while-loop
 		tmplist.sort()
-		doublelist.append(tmplist.copy())	# make a copy of tmplist!
+		doublelist.append(tmplist.copy())
 		tmplist.clear()
 
-	del(filelist) # might be unneccessary, as filelist should be empty by now anyway, but might help garbage collction
+	del(filelist)	 # might be unneccessary, as filelist should be empty by now anyway, but might help garbage collection
+	return doublelist
 
-	# doublelist now contains sublists.
-	# each sublist contains tupel(path, filename) of identical files
-	# each sublist is sorted by the path
+def _combine_folders_with_duplicate_files(doublelist, verbosity=1):		# todo: documentation
+	#doublelist won't come back! make a copy, if you still need it!
 
 
 	# "transpose" the sublists of doublelist and save as combined_long
@@ -383,10 +346,11 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		entry = doublelist.pop()
 		combined_long.append([[i[0] for i in entry], [i[1] for i in entry]])
 
-	del(doublelist)	#might be unneccessary, as doublelist should be empty by now anyway, but might help garbage collction
+	del(doublelist)	# doublelist should be empty by now anyway
 
 	# combined_long now contains sublists.
 	# each sublist is [[path/to/file1, path/to/file2, path/to/file3, ...], [file1, file2, file3, ...]]
+
 
 	if verbosity >= 1:
 		print("sorting list of duplicats by their folders...")
@@ -423,43 +387,9 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 	del(combined_long)
 
-	# combined now contains two-element sublists
-	# the first element of the sublist is a (subsub)list containing the paths of all involved folders
-	# the second element is a subsublist containing subsubsublists of identical files
-	# one element of combined looks like:
-	# [[path/to/folder1, path/to/folder2, path/to/folder3, ...], [[file1, file2, file3, ...], [filea, fileb, filec, ...], [filex, filey, filez, ...], ... ]]
-	# where file1-3 are identical (filea-c and filex-z respectively)
-	# and file1, filea and filex are in folder1 (file[2,b,y] in folder2 and file[3,c,z] in folder 3)
+	return combined
 
-
-	# put this out only if you want the combined list
-	'''
-	if verbosity >= 1:
-		print("output...")
-		if verbosity >= 2:
-			print()
-
-
-	for dupset in combined:
-		line = ""
-		for path in dupset[0]:
-			line += str(path) + '\n'
-		if verbosity == 2:
-			print(line)
-		line += "--------\n"
-		for files in dupset[1]:
-			for file in files:
-				line += file + '\t'
-			line.rstrip('\t')
-			line += '\n'
-		line += '\n'
-		if verbosity >= 3:
-			print(line)
-
-		outfile.write(line)
-	'''
-
-
+def _pair_folders_with_duplicate_files(combined, verbosity=1):			# todo: documentation
 	# break the (potentially long) tupel of different folders with same files from 'combined'
 	# into pairs, stored in 'paired_long'
 	infotext = "combining folders to pairs..."
@@ -475,21 +405,6 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	while combined:
 		tmppaths, tmpfiles = combined.pop()		# todo: remove 0 -> pop(), not pop(0), might be faster
 
-#		print(tmppaths)
-#		print(tmpfiles)
-#		print('\n')
-	#	i = 0
-	#	for path_i in tmppaths:
-	#		j = 0
-	#		for path_j in tmppaths:
-	#			if j <= i:
-	#				j += 1
-	#				continue
-				#paired_long.append([(path_i, path_j), [(f[i],f[j]) for f in tmpfiles]])
-	#			paired_long.append([(tmppaths[i], tmppaths[j]), [(f[i], f[j]) for f in tmpfiles]])
-	#			j += 1
-	#		i += 1
-
 		for i in range(len(tmppaths)):
 			for j in range(i+1, len(tmppaths)):
 	#			pass
@@ -500,11 +415,11 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		tmpfiles.clear()
 		if verbosity >= 1:
 			sys.stdout.write('\r'+infotext + "  " + str(round((1 - float(len(combined))/ready) * 100, 1)) + " %  " + \
-						str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB  " )
+						str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB" )
 			sys.stdout.flush()
 
 	if verbosity >= 1:
-		print('\r' + infotext + "         ")
+		print('\r' + infotext + "                 ")
 	del(combined)
 
 
@@ -544,8 +459,8 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 			prev_entry = entry
 			if verbosity >= 1 and i > 100:
-				sys.stdout.write('\r'+infotext + "  " + str(round((1 - float(len(paired_long))/ready) * 100, 1)) + " %" + \
-						str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ) + " MB")
+				sys.stdout.write('\r'+infotext + "  " + str(round((1 - float(len(paired_long))/ready) * 100, 1)) + " %  " + \
+						str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB")
 				sys.stdout.flush()
 				i = 0
 			i += 1
@@ -559,32 +474,138 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 		paired = paired_long.copy()
 
 	if verbosity >= 1:
-		print('\r' + infotext + "                  ")
+		print('\r' + infotext + "                 ")
 	del(paired_long)
 
 	# the structure of 'paired' is identical to 'paired_long'. The difference is, that 'paired_long' may contain
 	# the same pair of paths several times and in 'paired' each pair of paths exists only once with all files
 	# collected in this entry
 
-
-	if verbosity >= 1:
-		print("output...")
-		if verbosity >= 2:
-			print()
+	return paired
 
 
-	for dupset in paired:
-		line = str(dupset[0][0]) + '\n' + str(dupset[0][1]) + '\n'
-		if verbosity == 2:
-			print(line)
-		line += "--------\n"
-		for files in dupset[1]:
-			line += files[0] + '\t' + files[1] + '\n'
-		line += '\n'
-		if verbosity >= 3:
-			print(line)
+def measure_time(funcname, *opts, **args):
+	""" measure the time consumed by 'funcname' and print it out"""
 
-		outfile.write(line)
+	t0 = process_time()
+	ret = funcname(*opts, **args)
+	print("\033[93m" + funcname.__name__ + ": " + str(round(process_time() - t0, 3)) + " s\033[0m")
+	return ret
+
+
+def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
+	""" read all indexfiles into one large list,
+	sort this list by the hashes and filesizes
+	and print all duplicates to the outfile"""
+
+	#todo: somehow handle identical files in one folder, as they mess up everything a bit
+
+	#todo: make this decision user-selectable
+	task = {	#only one item should be uncommented, otherwise the output will overwrite itsself
+		#	"combined",	# list of folders with duplicate files, group as many folders as possible
+			"paired",	# list of folders with duplicate files, always pair two folders
+			}
+
+	filelist = _read_indexfiles(indexfiles, verbosity)
+	# filelist now contains tupel(size, mtime, hash, path, filename) of all files read
+
+	if "combined" in task or "paired" in task:	# collect duplicate files
+		doublelist = measure_time(_collect_duplicate_files, filelist, verbosity)
+		# doublelist now contains sublists.
+		# each sublist contains tupel(path, filename) of identical files
+		# each sublist is sorted by the path
+		pass
+
+	if "combined" in task or "paired" in task:	# combine folders with duplicate files
+		combined = measure_time(_combine_folders_with_duplicate_files, doublelist, verbosity)
+		# combined now contains two-element sublists
+		# the first element of the sublist is a (subsub)list containing the paths of all involved folders
+		# the second element is a subsublist containing subsubsublists of identical files
+		# one element of combined looks like:
+		# [[path/to/folder1, path/to/folder2, path/to/folder3, ...], [[file1, file2, file3, ...], [filea, fileb, filec, ...], [filex, filey, filez, ...], ... ]]
+		# where file1-3 are identical (filea-c and filex-z respectively)
+		# and file1, filea and filex are in folder1 (file[2,b,y] in folder2 and file[3,c,z] in folder 3)
+		pass
+
+	if "combined" in task:						# output only if you want the combined list
+		if verbosity >= 1:
+			print("output...")
+			if verbosity >= 2:
+				print()
+
+		for dupset in combined:
+			line = ""
+			for path in dupset[0]:
+				line += str(path) + '\n'
+			if verbosity == 2:
+				print(line)
+			line += "--------\n"
+			for files in dupset[1]:
+				for file in files:
+					line += file + '\t'
+				line.rstrip('\t')
+				line += '\n'
+			line += '\n'
+			if verbosity >= 3:
+				print(line)
+
+			outfile.write(line)
+
+	if "paired" in task:						# pair folders with duplicate files
+		paired = measure_time(_pair_folders_with_duplicate_files,combined, verbosity)
+
+	if "paired" in task:						# output only if you want the paired list
+		if verbosity >= 1:
+			print("output...")
+			if verbosity >= 2:
+				print()
+
+
+		for dupset in paired:
+			line = str(dupset[0][0]) + '\n' + str(dupset[0][1]) + '\n'
+			if verbosity == 2:
+				print(line)
+			line += "--------\n"
+			for files in dupset[1]:
+				line += files[0] + '\t' + files[1] + '\n'
+			line += '\n'
+			if verbosity >= 3:
+				print(line)
+
+			outfile.write(line)
 
 
 # todo: whenever combining something: check, that list is long enough
+
+def find_duplicate_files(indexfiles, outfile, size_digits=13, verbosity=1):
+	""" read all indexfiles into one large list,
+	sort this list by the hashes and filesizes
+	and print all duplicates to the outfile"""
+
+	filelist = _read_indexfiles(indexfiles, verbosity)
+
+	# unfortunately for the next steps _collect_duplicate_files can't be used as the size
+	# and hash of the files are not available anymore in the doublelist. (and due to memory efficiency
+	# I don't want to keep this information in doublelist)
+
+	# sort files
+	if verbosity >=1: print("sorting files by size and checksum...")
+	filelist.sort(key = lambda x: x[0].rjust(size_digits) + ' ' + x[2]) # sort my "size<space>hash"
+
+	# search for duplicates
+	if verbosity >=1: print("searching for duplicates...")
+	old_entry = ("", 0., "", "", "")
+	first = True
+	for entry in filelist:
+		if entry[0] == old_entry[0] and entry[2] == old_entry[2]:
+			line = ""
+			if first:
+				line += '\n'  + entry[0].rjust(size_digits) + '\t' + entry[2] + '\n'
+				line += "{mtime:10.4f}\t{name}\t{path}\n".format(mtime=old_entry[1], path=old_entry[3], name=old_entry[4])
+				first = False
+			line +="{mtime:10.4f}\t{name}\t{path}\n".format(mtime=entry[1], path=entry[3], name=entry[4])
+			outfile.write(line)
+			if verbosity >= 3: print(line)
+		else:
+			first = True
+		old_entry = entry
