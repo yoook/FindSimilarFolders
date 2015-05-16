@@ -492,6 +492,33 @@ def measure_time(funcname, *opts, **args):
 	return ret
 
 
+def find_similar_trees(indexfiles, outfile, verbosity=1):
+	#todo : documentation
+
+	filelist = _read_indexfiles(indexfiles, verbosity)
+
+	t0 = process_time()
+
+	filedict = {}
+	for entry in filelist:
+		key = entry[0]
+		value = [(entry[1], entry[2])]		# [(path, filename)]
+		if key in filedict:
+			filedict[key].extend(value)
+		else:
+			filedict[key] = value
+
+
+
+#	print("\033[93m" + str(round(process_time() - t0, 3)) + " s,  now " +
+#				str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+
+
+	# filedict is a dictionary with "size<space>hash" as keys. each value is a list of tupel, consisting of
+	# path and filename belonging to this size/hash, for example
+	# "231325 af3e3277f23b4636": [(path/to/file1, file1), (path/to/file2, file2), (path/to/file3, file3)...]
+
+
 def find_similar_folders(indexfiles, outfile, verbosity=1):
 	""" read all indexfiles into one large list,
 	sort this list by the hashes and filesizes

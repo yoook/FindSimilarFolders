@@ -26,7 +26,7 @@
 
 import argparse
 
-from fsf_core import create_index, collect_folders, find_duplicate_files, find_similar_folders
+from fsf_core import create_index, collect_folders, find_duplicate_files, find_similar_folders, find_similar_trees
 
 
 def prepare_create_index(args):	#todo: integrate collect_folders in create_index
@@ -119,6 +119,15 @@ def prepare_similar_folders(args):
 		find_similar_folders(indexfiles = args.index_file,
 								outfile=similarFoldersList,
 								verbosity=args.verbose)
+
+
+def prepare_similar_trees(args):
+	print('find similar trees')
+
+	with open(args.similartrees, 'w') as similartrees:
+		find_similar_trees(indexfiles = args.index_files,
+								outfile = similartrees,
+								verbosity = args.verbose)
 
 
 if __name__ == "__main__":
@@ -247,6 +256,24 @@ if __name__ == "__main__":
 								help='level of verbosity')
 
 	parser_similar_folders.set_defaults(func=prepare_similar_folders)
+
+
+
+	parser_similar_folders = subparsers.add_parser('similarTrees',
+								aliases=['st'],
+								help='find similar trees (folders with subfolders with high similarity)')
+
+	parser_similar_folders.add_argument('index_files',
+								nargs='+',
+								help='file(s) to look for duplikates in. More than one file may be given')
+	parser_similar_folders.add_argument('similartrees',
+								help='file to write the findings to')
+	parser_similar_folders.add_argument('-v', '--verbose',
+								nargs='?', const='2', default='1',
+								type=int, choices=range(0,4),
+								help='level of verbosity')
+
+	parser_similar_folders.set_defaults(func=prepare_similar_trees)
 
 
 
