@@ -18,7 +18,7 @@
 
 # verbosity guidelines:
 # 	0:	print nothing except errors
-#	1:	print rought progress
+#	1:	print rought progress, this is the default
 #	2:	print detailed progress
 #	3:	print everything
 

@@ -317,6 +317,8 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	sort this list by the hashes and filesizes
 	and print all duplicates to the outfile"""
 
+	#todo: somehow handle identical files in one folder, as they mess up everything a bit
+
 	filelist = []
 
 	# read all indexfiles
@@ -369,6 +371,9 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 
 
 	# "transpose" the sublists of doublelist and save as combined_long
+	if verbosity >= 1:
+		print("transforming list of duplicates...")
+
 	combined_long = []
 	while doublelist:
 		entry = doublelist.pop()
@@ -422,6 +427,9 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 	# where file1-3 are identical (filea-c and filex-z respectively)
 	# and file1, filea and filex are in folder1 (file[2,b,y] in folder2 and file[3,c,z] in folder 3)
 
+
+	# put this out only if you want the combined list
+	'''
 	if verbosity >= 1:
 		print("output...")
 		if verbosity >= 2:
@@ -445,3 +453,8 @@ def find_similar_folders(indexfiles, outfile, size_digits=13, verbosity=1):
 			print(line)
 
 		outfile.write(line)
+	'''
+
+
+
+# todo: whenever combining something: check, that list is long enough
