@@ -20,8 +20,14 @@ import hashlib
 import pathlib
 import sys
 
+from collections import namedtuple	# allow my lists to be more clearly structured
+
 from time import process_time	# todo: remove later, only needed for optimisation
 import resource					# for memory monitoring. might be removed later
+
+
+# define a data type elements of the list of files
+hpn = namedtuple('HashPathName', ['hash', 'path', 'filename'])
 
 def _gethash(filename, blocksize=65536):
 	hasher=hashlib.sha1()
@@ -273,8 +279,8 @@ def _get_fileinfo(string):
 	splitstring = string.rstrip('\n').split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
 	path = pathlib.PurePath(splitstring[3])
 
-	#		size                           hash                    path (as tuple) filename
-	return (splitstring[0].strip() + ' ' + splitstring[2].strip(), path.parts[:-1], path.name)
+	#		   size                           hash                    path (as tuple) filename
+	return hpn(splitstring[0].strip() + ' ' + splitstring[2].strip(), path.parts[:-1], path.name)
 
 def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 
@@ -297,24 +303,24 @@ def _collect_duplicate_files(filelist, verbosity=1):	# todo: documentation
 	if verbosity >= 1:
 		print("sorting files by size and checksum")
 
-	filelist.sort(key = lambda x: x[0], reverse=True)
+	filelist.sort(key = lambda x: x.hash, reverse=True)
 
 	# search for duplicates
 	if verbosity >=1:
 		print("searching for duplicates...")
 
-	prev_entry = ("", (), "")	#size, mtime, hash, path, filename
+	prev_entry = hpn("", (), "")	# hash, path, filename
 	first = True
 	doublelist = []
 	tmplist = []
 
 	while filelist:
 		entry = filelist.pop()
-		if entry[0] == prev_entry[0]:
+		if entry.hash == prev_entry.hash:
 			if first:
 				first = False
-				tmplist.append((prev_entry[1], prev_entry[2]))	# just safe path + name to new list
-			tmplist.append((entry[1], entry[2]))
+				tmplist.append((prev_entry.path, prev_entry.filename))	# just safe path + name to new list
+			tmplist.append((entry.path, entry.filename))
 
 		else:
 			first = True
@@ -502,8 +508,8 @@ def find_similar_trees(indexfiles, outfile, verbosity=1):
 
 	filedict = {}
 	for entry in filelist:
-		key = entry[0]
-		value = [(entry[1], entry[2])]		# [(path, filename)]
+		key = entry.hash
+		value = [(entry.path, entry.filename)]		# [(path, filename)]
 		if key in filedict:
 			filedict[key].extend(value)
 		else:
@@ -618,20 +624,20 @@ def find_duplicate_files(indexfiles, outfile, verbosity=1):
 
 	# sort files
 	if verbosity >=1: print("sorting files by size and checksum...")
-	filelist.sort(key = lambda x: x[0])
+	filelist.sort(key = lambda x: x.hash)
 
 	# search for duplicates
 	if verbosity >=1: print("searching for duplicates...")
-	old_entry = ("", (), "")
+	old_entry = hpn("", (), "")
 	first = True
 	for entry in filelist:
-		if entry[0] == old_entry[0]:
+		if entry.hash == old_entry.hash:
 			line = ""
 			if first:
-				line += '\n'  + entry[0] + '\n'
-				line += "{name}\t{path}\n".format(path=pathlib.PurePath(*old_entry[1]), name=old_entry[2])
+				line += '\n'  + entry.hash + '\n'
+				line += "{name}\t{path}\n".format(path=pathlib.PurePath(*old_entry.path), name=old_entry.filename)
 				first = False
-			line +="{name}\t{path}\n".format(path=pathlib.PurePath(*entry[1]), name=entry[2])
+			line +="{name}\t{path}\n".format(path=pathlib.PurePath(*entry.path), name=entry.filename)
 			outfile.write(line)
 			if verbosity >= 3: print(line)
 		else:
