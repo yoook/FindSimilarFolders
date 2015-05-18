@@ -22,6 +22,8 @@ import sys
 
 from collections import namedtuple	# allow my lists to be more clearly structured
 
+from fsf_objects import FTree
+
 from time import process_time	# todo: remove later, only needed for optimisation
 import resource					# for memory monitoring. might be removed later
 
@@ -285,6 +287,7 @@ def _get_fileinfo(string):
 def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
 
 	filelist = []
+
 	if verbosity >= 1:
 		print("reading files...")
 	for file in indexfiles:
@@ -516,14 +519,29 @@ def find_similar_trees(indexfiles, outfile, verbosity=1):
 			filedict[key] = value
 
 
-
-#	print("\033[93m" + str(round(process_time() - t0, 3)) + " s,  now " +
-#				str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+	t1 = process_time()
+	print("\033[93m" + str(round(t1 - t0, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
 
 
 	# filedict is a dictionary with "size<space>hash" as keys. each value is a list of tupel, consisting of
 	# path and filename belonging to this size/hash, for example
 	# "231325 af3e3277f23b4636": [(path/to/file1, file1), (path/to/file2, file2), (path/to/file3, file3)...]
+
+	print("sorting filelist...")
+	filelist.sort(key=lambda x: x[1])		# sort by path
+	t2 = process_time()
+	print("\033[93m" + str(round(t2 - t1, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+
+	print("building filetree...")
+	filetree = FTree('root')
+	for entry in filelist:
+		filetree.create_subtree(entry.path)
+
+	t3 = process_time()
+	print("\033[93m" + str(round(t3 - t2, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+	print(filetree)
+
+
 
 
 def find_similar_folders(indexfiles, outfile, verbosity=1):
