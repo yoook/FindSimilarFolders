@@ -6,7 +6,12 @@ class FTree(object):
 		self.name = name
 		self.cargo = cargo
 		self.subfolders = [] if subfolders is None else subfolders
+		self._path = [name]	# should not be written from outside. to read it, use get_path()
 
+	def append_subfolder(self, sf):
+		'append the given folder as subfolder'
+		sf._path = self._path + sf._path
+		self.subfolders.append(sf)
 
 	def create_subfolder(self, sf):
 		'create a subfolder of given name and return it'
@@ -15,7 +20,7 @@ class FTree(object):
 				return i
 		child = self.__new__(type(self))
 		child.__init__(sf)
-		self.subfolders.append(child)
+		self.append_subfolder(child)
 		return child
 
 	def create_subtree(self, st):
@@ -29,9 +34,9 @@ class FTree(object):
 		else:
 			return self
 
-	def append_subfolder(self, sf):
-		'append the given folder as subfolder'
-		self.subfolders.append(sf)
+	def get_path(self):
+		return tuple(self._path)
+
 
 	def traverse_topdown(self, function):
 		'traverse this tree topdown. apply functionto each node. so function has to take exactly one node element as argument'
@@ -75,37 +80,47 @@ class FTree(object):
 				return i
 
 class FolderRefs:
-	def __init__(self, nfiles=0, nsubfolders=0, folder_with_dup_files=None):
+	def __init__(self, nfiles=0, nsubfolders=0, file_dups=None, subfolder_dups=None):
 		self.nfiles = nfiles
 		self.nsubfolders = nsubfolders
-		self.folder_with_dup_files = Counter({}) if folder_with_dup_files is None else folder_with_dup_files
+
+		self.file_dups = Counter({}) if file_dups is None else file_dups
+		self.subfolder_dups = Counter({}) if subfolder_dups is None else subfolder_dups
 
 
 	def __str__(self):
-		return str(self.nfiles) + ', ' + str(self.nsubfolders) + ', ' + str(self.folder_with_dup_files)
+		return str(self.nfiles) + ', ' + str(self.nsubfolders) + ', ' + str(self.file_dups) + ', ' + str(self.subfolder_dups)
 
 	def __repr__(self):
-		return self.__class__.__name__ + '(' + repr(self.nfiles)+ ', ' + repr(self.nsubfolders) + ', ' + repr(self.folder_with_dup_files) + ')'
-
-	pass
+		return self.__class__.__name__ + '(' + repr(self.nfiles)+ ', ' + repr(self.nsubfolders) + ', ' + repr(self.file_dups) + ', ' + repr(self.subfolder_dups) + ')'
 
 
 class FTreeStat(FTree):
-	def __init__(self, name):
-		#super().__init__(name, cargo=FolderRefs()) 	# this works only with Python 3
-		super(type(self), self).__init__(name, cargo=FolderRefs(), subfolders = [])		# for compatibility with python 2
+	def __init__(self, name, cargo=None, subfolders=None):
+		if not cargo:
+			cargo = FolderRefs()
+		#super().__init__(name, cargo=FolderRefs()) 	# this works only with Python 3	# todo: make python3 default
+		super(type(self), self).__init__(name, cargo, subfolders=subfolders)		# for compatibility with python 2
 
-	def add_count(self, filefolder, dups):
-		'take an entry of the filelist and one matching of the filedict and update the FTreeStat'
+	def add_count(self, dups):
+		'take an entry the filedict and update the FTreeStat'
 
-		if filefolder.path[-1] != self.name:		# error! This tree node does not belong to the given filefolder entry!
-			return 0
 		self.cargo.nfiles += 1
-		self.cargo.folder_with_dup_files.update(dict(dups).keys())	# dict(dups).keys: reduce the number of files countet per folder to one
+		self.cargo.file_dups.update(dict(dups).keys())	# dict(dups).keys: reduce the number of files counted per folder to one
 
-	def remove_unimportant(self):
+	def remove_unsimilar(self):
 		'this function shall remove folders from the counter, that are not "similar enough". overwrite it with something suitable'
-		for i in self.cargo.folder_with_dup_files.copy():
-			if self.cargo.folder_with_dup_files[i] < self.cargo.nfiles - 2:	# if more than two files are missing -> delete
-				del self.cargo.folder_with_dup_files[i]
+		if self.cargo.nfiles <=1:
+			self.cargo.file_dups = Counter()			# remove everything (replacing with new, empty counter).
+
+		l = self.cargo.file_dups.copy().keys()
+		for i in l:
+			if i == self.get_path()[1:]:								# obviously each folder is identical to itsself. don't count that.
+				del self.cargo.file_dups[i]
+				continue
+
+			if self.cargo.file_dups[i] < self.cargo.nfiles - 2:	# if more than two files are missing -> delete
+				del self.cargo.file_dups[i]
+				continue
+
 

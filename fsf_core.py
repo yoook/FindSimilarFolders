@@ -537,13 +537,13 @@ def find_similar_trees(indexfiles, outfile, verbosity=1):
 	filetree = FTreeStat('root')
 	for entry in filelist:
 		node = filetree.create_subtree(entry.path)
-		node.add_count(entry, filedict[entry.hash])
+		node.add_count(filedict[entry.hash])
 
 	t3 = process_time()
 	print("\033[93m" + str(round(t3 - t2, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
 
 	print("removing folders with small similarity...")
-	filetree.traverse_bottomup(lambda node: node.remove_unimportant())
+	filetree.traverse_bottomup(lambda node: node.remove_unsimilar())
 
 	print(filetree)
 
