@@ -37,6 +37,8 @@ class FTree(object):
 	def get_path(self):
 		return tuple(self._path)
 
+	def is_leaf(self):
+		return len(self.subfolders) == 0
 
 	def traverse_topdown(self, function):
 		'traverse this tree topdown. apply functionto each node. so function has to take exactly one node element as argument'
@@ -47,7 +49,7 @@ class FTree(object):
 
 
 	def traverse_bottomup(self, function):
-		'traverse this tree bottomup. apply functionto each node. so function has to take exactly one node element as argument'
+		'traverse this tree bottomup. apply function to each node. so function has to take exactly one node element as argument'
 		for i in self.subfolders:
 			i.traverse_bottomup(function)
 
@@ -87,6 +89,8 @@ class FolderRefs:
 		self.file_dups = Counter({}) if file_dups is None else file_dups
 		self.subfolder_dups = Counter({}) if subfolder_dups is None else subfolder_dups
 
+		self.hidden_file_dups = Counter({})				# keep already counted and collected files and subfolders here for future reference
+		self.hidden_subfolder_dups = Counter({})
 
 	def __str__(self):
 		return str(self.nfiles) + ', ' + str(self.nsubfolders) + ', ' + str(self.file_dups) + ', ' + str(self.subfolder_dups)
@@ -123,4 +127,13 @@ class FTreeStat(FTree):
 				del self.cargo.file_dups[i]
 				continue
 
+#	def collect(self):		# todo: give better name
+#		for i in self.subfolders:
+#			self.cargo.subfolder_dups.update(dict(i.cargo.
 
+
+	def ____str__(self, level=0):							# todo: for testing only. remove later, so the parent __str__ is used
+		line = "   " * level + self.name + ':\t' + str(self.cargo.nfiles) + ': ' + str(len(self.cargo.file_dups)) + '\n'
+		for i in self.subfolders:
+			line += i.__str__(level+1)
+		return line
