@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from fsf_core import _gethash, _get_fileinfo, _read_indexfiles, hpn
+from fsf_core import *
+from fsf_core import _get_fileinfo, _gethash, _read_indexfiles, _collect_duplicate_files, _combine_folders_with_duplicate_files, _pair_folders_with_duplicate_files
 
 import unittest
 import unittest.mock as mock
@@ -39,16 +40,125 @@ class test_helper_functions(unittest.TestCase):
 		with mock.patch('fsf_core.open', create = True) as mockopen:
 			mockopen.return_value = fake_file
 			hash = _gethash('bar')
-		self.assertEqual(hash, "cfb9d945d9d322b092be7f7ae48abb9ecd618be1", "wrong hash for long files")	
+		self.assertEqual(hash, "cfb9d945d9d322b092be7f7ae48abb9ecd618be1", "wrong hash for long files")
 
 
-class test_main_path(unittest.TestCase):
-	def setUp():
-		pass
+class test_find_similar_folders_subroutines(unittest.TestCase):
+	def test__collect_duplicate_files(self):
+		filelist = [
+			hpn("size hash", ("folder", "with", "file", "one"), "fileone"),
+			hpn("12 34", ("folder", "one"), "f1"),
+			hpn("12 34", ("folder", "two"), "f2"),
+			hpn("55 55", ("folder", "one"), "f3"),
+			hpn("55 55", ("folder", "three"), "f3"),
+			hpn("55 55", ("anotherfolder", "four"), "f4"),
+			hpn("55 55", ("aanotherfolder", ), "f5"),
+			hpn("55 55", ("aaan", "folder that should be", "sorted to the first", "position, but is quite long"), "f6"),
+			hpn("55 55", ("aanotherfolder", ), "aaaa"), #should sort directly befor 'f5'
+		]
 
+		doublelist = [
+			[(("folder", "one"), "f1"), (("folder", "two"), "f2")],
+			[(("aaan", "folder that should be", "sorted to the first", "position, but is quite long"), "f6"), (("aanotherfolder", ), "aaaa"), (("aanotherfolder", ), "f5"), (("anotherfolder", "four"), "f4"), (("folder", "one"), "f3"), (("folder", "three"), "f3"),],
+		]
 
+		result = _collect_duplicate_files(filelist, verbosity=0)
+		self.assertEqual(result, doublelist)
 
-	pass
+	def test__combine_folders_with_duplicate_files(self):
+		doublelist = [
+			[(("path1", ), "f1"), (("path2", ), "f2"), (("path3", ), "f3")],
+			[(("path1", ), "f4"), (("path2", ), "f5"), (("path3", ), "f6")],
+
+			[(("path", "10"), "f10"), (("path11",), "f11"), (("p", "a", "t", "h", "12"), "f12")]
+		]
+
+		combined = [
+			[
+				[("path1", ), ("path2", ), ("path3", )] ,
+			 	[["f1", "f2", "f3"], ["f4", "f5", "f6"]]
+			],
+			[
+				[("path", "10"), ("path11",), ("p", "a", "t", "h", "12")],
+				[["f10", "f11", "f12"]]
+			],
+		]
+
+		result = _combine_folders_with_duplicate_files(doublelist, verbosity=0)
+		result.sort()
+		combined.sort()
+		self.assertEqual(result, combined)
+
+	def test__pair_folders_with_duplicate_files(self):
+		combined = [
+			[
+				[("path", "10"), ("path11",), ("p", "a", "t", "h", "12")],
+				[["f10", "f11", "f12"]]
+			],
+			[
+				[("path1",), ("path2",)],
+				[["f1", "f2"]]
+			],
+			[
+				[("p3",), ("p4",), ("p5",), ("p6",)],
+				[["f3", "f4", "f5", "f6"], ["fa", "fb", "fc", "fd"]]
+			],
+			[
+				[("p3",), ("p5",)],
+				[["F3", "F5"]]
+			],
+		]
+
+		paired = [
+			[
+				(("path", "10"), ("path11",)),
+				[("f10", "f11")]
+			],
+			[
+				(("path", "10"), ("p", "a", "t", "h", "12")),
+				[("f10", "f12")]
+			],
+			[
+				(("path11",), ("p", "a", "t", "h", "12")),
+				[("f11", "f12")]
+			],
+
+			[
+				(("path1",), ("path2",)),
+				[("f1", "f2")]
+			],
+
+			[
+				(("p3",), ("p4",)),
+				[("f3", "f4"), ("fa", "fb")]
+			],
+			[
+				(("p3",), ("p5",)),
+				[("f3", "f5"), ("fa","fc"), ("F3", "F5")]
+			],
+			[
+				(("p3",), ("p6",)),
+				[("f3","f6"), ("fa", "fd")]
+			],
+			[
+				(("p4",), ("p5",)),
+				[("f4", "f5"), ("fb", "fc")]
+			],
+			[
+				(("p4",), ("p6",)),
+				[("f4","f6"), ("fb", "fd")]
+			],
+			[
+				(("p5",), ("p6",)),
+				[("f5", "f6"), ("fc", "fd")]
+			],
+		]
+
+		result = _pair_folders_with_duplicate_files(combined, verbosity=0)
+		result.sort()
+		paired.sort()
+		self.assertEqual(result, paired)
+
 
 
 if __name__ == '__main__':
