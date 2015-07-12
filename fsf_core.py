@@ -1,16 +1,16 @@
 # FindSimilarFolders: find duplicate files and folders, that contain many of them
 # Copyright (C) 2015  Johannes König
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -28,7 +28,7 @@ from time import process_time	# todo: remove later, only needed for optimisation
 import resource					# for memory monitoring. might be removed later
 
 
-# define a data type elements of the list of files
+# define a data type for elements of the list of files # todo: might go to fsf_objects
 hpn = namedtuple('HashPathName', ['hash', 'path', 'filename'])
 
 def _gethash(filename, blocksize=65536):
@@ -486,7 +486,7 @@ def _pair_folders_with_duplicate_files(combined, verbosity=1):			# todo: documen
 	del(paired_long)
 
 	# the structure of 'paired' is identical to 'paired_long'. The difference is, that 'paired_long' may contain
-	# the same pair of paths several times and in 'paired' each pair of paths exists only once with all files
+	# the same pairs of paths several times and in 'paired' each pair of paths exists only once with all files
 	# collected in this entry
 
 	return paired
@@ -500,54 +500,6 @@ def measure_time(funcname, *opts, **args):
 	print("\033[93m" + funcname.__name__ + ": " + str(round(process_time() - t0, 3)) + " s,  now " +
 				str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
 	return ret
-
-
-def find_similar_trees(indexfiles, outfile, verbosity=1):
-	#todo : documentation
-
-	filelist = _read_indexfiles(indexfiles, verbosity)
-
-	print("collecting duplicate files")
-	t0 = process_time()
-
-	filedict = {}
-	for entry in filelist:
-		key = entry.hash
-		value = [(entry.path, entry.filename)]		# [(path, filename)]
-		if key in filedict:
-			filedict[key].extend(value)
-		else:
-			filedict[key] = value
-
-
-	t1 = process_time()
-	print("\033[93m" + str(round(t1 - t0, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
-
-
-	# filedict is a dictionary with "size<space>hash" as keys. each value is a list of tupel, consisting of
-	# path and filename belonging to this size/hash, for example
-	# "231325 af3e3277f23b4636": [(path/to/file1, file1), (path/to/file2, file2), (path/to/file3, file3)...]
-
-	print("sorting filelist...")
-	filelist.sort(key=lambda x: x[1])		# sort by path
-	t2 = process_time()
-	print("\033[93m" + str(round(t2 - t1, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
-
-	print("building filetree...")
-	filetree = FTreeStat('root')
-	for entry in filelist:
-		node = filetree.create_subtree(entry.path)
-		node.add_count(filedict[entry.hash])
-
-	t3 = process_time()
-	print("\033[93m" + str(round(t3 - t2, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
-
-	print("removing folders with small similarity...")
-	filetree.traverse_bottomup(lambda node: node.remove_unsimilar())
-
-	print(filetree)
-
-
 
 
 def find_similar_folders(indexfiles, outfile, verbosity=1):
@@ -611,6 +563,10 @@ def find_similar_folders(indexfiles, outfile, verbosity=1):
 	if "paired" in task:						# pair folders with duplicate files
 		paired = measure_time(_pair_folders_with_duplicate_files,combined, verbosity)
 
+	# 'paired' has a quite similar structure like 'combined', but the folders with identical files are
+	# now split into pairs. i.e. one entry of 'paired' looks like:
+	# [(path/to/folder1, path/to/folder2), [(file1, file2), (filea, fileb), (filex, filey), ...]]
+
 	if "paired" in task:						# output only if you want the paired list
 		if verbosity >= 1:
 			print("output...")
@@ -667,3 +623,50 @@ def find_duplicate_files(indexfiles, outfile, verbosity=1):
 		else:
 			first = True
 		old_entry = entry
+
+
+
+def find_similar_trees(indexfiles, outfile, verbosity=1):
+	#todo : documentation
+
+	filelist = _read_indexfiles(indexfiles, verbosity)
+
+	print("collecting duplicate files")
+	t0 = process_time()
+
+	filedict = {}
+	for entry in filelist:
+		key = entry.hash
+		value = [(entry.path, entry.filename)]		# [(path, filename)]
+		if key in filedict:
+			filedict[key].extend(value)
+		else:
+			filedict[key] = value
+
+
+	t1 = process_time()
+	print("\033[93m" + str(round(t1 - t0, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+
+
+	# filedict is a dictionary with "size<space>hash" as keys. each value is a list of tupel, consisting of
+	# path and filename belonging to this size/hash, for example
+	# "231325 af3e3277f23b4636": [(path/to/file1, file1), (path/to/file2, file2), (path/to/file3, file3)...]
+
+	print("sorting filelist...")
+	filelist.sort(key=lambda x: x[1])		# sort by path
+	t2 = process_time()
+	print("\033[93m" + str(round(t2 - t1, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+
+	print("building filetree...")
+	filetree = FTreeStat('root')
+	for entry in filelist:
+		node = filetree.create_subtree(entry.path)
+		node.add_count(filedict[entry.hash])
+
+	t3 = process_time()
+	print("\033[93m" + str(round(t3 - t2, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+
+	print("removing folders with small similarity...")
+	filetree.traverse_bottomup(lambda node: node.remove_unsimilar())
+
+	print(filetree)
