@@ -660,7 +660,7 @@ def find_similar_trees(indexfiles, outfile, verbosity=1):
 	print("building filetree...")
 	filetree = FTreeStat('root')
 	for entry in filelist:
-		node = filetree.create_subtree(entry.path)
+		node = filetree.create_branch(entry.path)
 		node.add_count(filedict[entry.hash])
 
 	t3 = process_time()
