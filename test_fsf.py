@@ -163,7 +163,7 @@ class test_find_similar_folders_subroutines(unittest.TestCase):
 		self.assertEqual(result, paired)
 
 
-class test_fsf_objects(unittest.TestCase):
+class test_fsf_objects_FTree(unittest.TestCase):
 	def setUp(self):
 		self.testtree = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", subfolders=[FTree("leaf2")])])
 
@@ -333,6 +333,33 @@ class test_fsf_objects(unittest.TestCase):
 		self.assertIn(self.testtree.__repr__(), [	"FTree('test-tree', 'CARGO', [FTree('leaf', 'CARGO2'), FTree('node', None, [FTree('leaf2')])])",
 													"FTree('test-tree', 'CARGO', [FTree('node', None, [FTree('leaf2')]), FTree('leaf', 'CARGO2')])"  ])
 
+
+class test_fsf_opjects_FolderRefs(unittest.TestCase):
+	def setUp(self):
+		self.testfolderref = FolderRefs(3, 5, {"a": 3, "b": 6}, {"c": 9, "d": 0})
+
+
+	def test_FolderRefs___init__(self):
+		self.assertEqual(self.testfolderref.nfiles, 3)
+		self.assertEqual(self.testfolderref.nsubfolders, 5)
+		self.assertEqual(self.testfolderref.file_dups, Counter({"a": 3, "b": 6}))
+		self.assertEqual(self.testfolderref.subfolder_dups, Counter({"c": 9, "d": 0}))
+		self.assertEqual(self.testfolderref.hidden_file_dups, Counter({}))
+		self.assertEqual(self.testfolderref.hidden_subfolder_dups, Counter({}))
+
+
+	def test_FolderRefs___str__(self):
+		self.assertIn(self.testfolderref.__str__(), [	"3, 5, {'a': 3, 'b': 6}, {'c': 9, 'd': 0}",
+														"3, 5, {'a': 3, 'b': 6}, {'d': 0, 'c': 9}",
+														"3, 5, {'b': 6, 'a': 3}, {'c': 9, 'd': 0}",
+														"3, 5, {'b': 6, 'a': 3}, {'d': 0, 'c': 9}"  ])
+
+
+	def test_FolderRefs___repr__(self):
+		self.assertIn(self.testfolderref.__repr__(), [	"FolderRefs(3, 5, {'a': 3, 'b': 6}, {'c': 9, 'd': 0})",
+														"FolderRefs(3, 5, {'a': 3, 'b': 6}, {'d': 0, 'c': 9})",
+														"FolderRefs(3, 5, {'b': 6, 'a': 3}, {'c': 9, 'd': 0})",
+														"FolderRefs(3, 5, {'b': 6, 'a': 3}, {'d': 0, 'c': 9})"  ])
 
 
 if __name__ == '__main__':
