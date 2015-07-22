@@ -16,30 +16,17 @@ class FTree(object):
 	def append_subfolder(self, sf):
 		'''append the given folder as subfolder.
 		If a subfolder of the same name as 'sf' already exists, overwrite it
-		type(sf) == FTree!
-		'''
+		type(sf) == FTree!'''
 
 		if sf.name in [i.name for i in self._subfolders]:
 			self.remove_subfolder(sf.name)
 		self._subfolders.append(sf)
 
 
-	def remove_subfolder(self, sfName):
-		''' remove the subfolder of the given name from this tree and return
-		this subfolder.
-		return False, if there was no subfolder of given name'''
-
-		for i in range(self.num_subfolders()):
-			if self._subfolders[i].name == sfName:
-				return self._subfolders.pop(i)
-		return False
-
-
 	def create_subfolder(self, sfName):
 		'''create a subfolder of given name and return it
 		if it already exists, just return it
-		type(sf) == str, not FTree!
-		'''
+		type(sf) == str, not FTree!'''
 
 		tmp = self.get_subfolder(sfName)
 		if tmp:
@@ -64,57 +51,15 @@ class FTree(object):
 			return self
 
 
-	def is_leaf(self):
-		return self.num_subfolders() == 0
+	def remove_subfolder(self, sfName):
+		''' remove the subfolder of the given name from this tree and return
+		this subfolder.
+		return False, if there was no subfolder of given name'''
 
-
-	def traverse_topdown(self, function):
-		'traverse this tree topdown. apply function to each node. so function has to take exactly one node element as argument'
-		function(self)
-
-		for i in self.iter_subfolders():
-			i.traverse_topdown(function)
-
-
-	def traverse_bottomup(self, function):
-		'traverse this tree bottomup. apply function to each node. so function has to take exactly one node element as argument'
-		for i in self.iter_subfolders():
-			i.traverse_bottomup(function)
-
-		function(self)
-
-
-	def __eq__(self, other):
-		'''compare for equality
-		side effect: sort the list '_subfolders' of this and the other tree!
-		automatically descands into children and sorts ALL '_subfolders' of all descandants!
-		'''
-		if type(self) == type(other):
-			self._subfolders.sort(key=lambda x:x.name)
-			other._subfolders.sort(key=lambda x:x.name)
-			return self.__dict__ == other.__dict__
-		return NotImplemented
-
-
-	def __ne__(self, other):
-		'''compare for not equal'''
-		return not self == other
-
-
-	def __str__(self, level=0):
-		line = "   " * level + self.name + (':\t' + str(self.cargo) if type(self.cargo)!=type(None) else "") + '\n'
-		for i in self.iter_subfolders():
-			line += i.__str__(level+1)
-		return line
-
-
-	def __repr__(self):
-		line = repr(list(self.iter_subfolders()))
-		if line == "[]" and type(self.cargo)==type(None):
-			return self.__class__.__name__ + '(' + repr(self.name) +                                         ')'
-		if line == "[]":
-			return self.__class__.__name__ + '(' + repr(self.name) + ', ' + repr(self.cargo) +               ')'
-		return     self.__class__.__name__ + '(' + repr(self.name) + ', ' + repr(self.cargo) + ', ' + line + ')'
+		for i in range(self.num_subfolders()):
+			if self._subfolders[i].name == sfName:
+				return self._subfolders.pop(i)
+		return False
 
 
 	def get_subfolder(self, sfName):
@@ -138,6 +83,69 @@ class FTree(object):
 
 		return len(self._subfolders)	# less elegance, but better performance
 		#return len(list(self.iter_subfolders()))
+
+
+	def is_leaf(self):
+		return self.num_subfolders() == 0
+
+
+	def traverse_topdown(self, function):
+		'''traverse this tree topdown. apply function to each node.
+		so function has to take exactly one node element as argument'''
+
+		function(self)
+
+		for i in self.iter_subfolders():
+			i.traverse_topdown(function)
+
+
+	def traverse_bottomup(self, function):
+		'''traverse this tree bottomup. apply function to each node.
+		so function has to take exactly one node element as argument'''
+
+		for i in self.iter_subfolders():
+			i.traverse_bottomup(function)
+
+		function(self)
+
+
+	def __eq__(self, other):
+		'''compare for equality
+		side effect: sort the list '_subfolders' of this and the other tree!
+		automatically descands into children and sorts ALL '_subfolders' of all descandants!'''
+
+		if type(self) == type(other):
+			self._subfolders.sort(key=lambda x:x.name)
+			other._subfolders.sort(key=lambda x:x.name)
+			return self.__dict__ == other.__dict__
+		return NotImplemented
+
+
+	def __ne__(self, other):
+		'''compare for not equal'''
+
+		return not self == other
+
+
+	def __str__(self, level=0):
+		'''produce a nice string showing the structure (and more or less the content) of this tree'''
+
+		line = "   " * level + self.name + (':\t' + str(self.cargo) if type(self.cargo)!=type(None) else "") + '\n'
+		for i in self.iter_subfolders():
+			line += i.__str__(level+1)
+		return line
+
+
+	def __repr__(self):
+		'''produce a string that would generate this tree if pasted to the python console'''
+
+		line = repr(list(self.iter_subfolders()))
+		if line == "[]" and type(self.cargo)==type(None):
+			return self.__class__.__name__ + '(' + repr(self.name) +                                         ')'
+		if line == "[]":
+			return self.__class__.__name__ + '(' + repr(self.name) + ', ' + repr(self.cargo) +               ')'
+		return     self.__class__.__name__ + '(' + repr(self.name) + ', ' + repr(self.cargo) + ', ' + line + ')'
+
 
 
 class FolderRefs:

@@ -17,6 +17,7 @@ class test_helper_functions(unittest.TestCase):
 		t2 = hpn("124428 e800e9c562ec23614517e868799dba8e6eca9be", ("VMs","Win10alpha","Logs"), "f1")
 		self.assertEqual(t1, t2)
 
+
 	def test__read_indexfiles(self):
 		fake_file = io.StringIO("  124428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n  224428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n  324428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n")
 		fake_file2 = io.StringIO("  424428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n  524428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n  624428	1413392134.8142	e800e9c562ec23614517e868799dba8e6eca9be	VMs/Win10alpha/Logs/f1\n")
@@ -166,6 +167,7 @@ class test_fsf_objects(unittest.TestCase):
 	def setUp(self):
 		self.testtree = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", subfolders=[FTree("leaf2")])])
 
+
 	def test_FTree___init__(self):
 		tr1 = FTree("root", None, [FTree("leaf", "CARGO1"), FTree("leaf", "CARGO2"), FTree("leaf", "CARGO3")])
 		tr2 = FTree("root", None, [FTree("leaf", "CARGO3")])
@@ -175,10 +177,40 @@ class test_fsf_objects(unittest.TestCase):
 		self.assertEqual(tr1, tr2)
 
 
-	def test_FTree_num_subfolders(self):
-		self.assertEqual(self.testtree.num_subfolders(), 2)
-		self.assertEqual(FTree("tree2").num_subfolders(), 0)
-		self.assertEqual(FTree("tree3", subfolders=[FTree("subtree", cargo=13)]).num_subfolders(), 1)
+	def test_FTree_append_subfolder(self):
+		self.testtree.append_subfolder( FTree("new_node", 23, [FTree("new_leaf"), FTree("new_leaf2")]))
+		self.testtree.append_subfolder( FTree("node", "NEW_CARGO"))
+
+		tr = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", "NEW_CARGO"), FTree("new_node", 23, [FTree("new_leaf"), FTree("new_leaf2")])])
+
+		self.assertEqual(self.testtree, tr)
+
+
+	def test_FTree_create_subfolder(self):
+		tr1 = self.testtree.create_subfolder("new_leaf")
+		tr2 = self.testtree.create_subfolder("node")
+
+		tr = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", subfolders=[FTree("leaf2")]), FTree("new_leaf")])
+
+		self.assertEqual(self.testtree, tr)
+		self.assertEqual(tr1, FTree("new_leaf"))
+		self.assertEqual(tr2, FTree("node", subfolders=[FTree("leaf2")]))
+
+
+	def test_FTree_create_branch(self):
+		tr = FTree("root")
+		tr1 = tr.create_branch(["node", "child", "leaf"])
+		tr2 = tr.create_branch(("node", "child2"))
+
+		self.assertEqual(tr, FTree("root", None, [FTree("node", None, [FTree("child", None, [FTree("leaf")]), FTree("child2")])]))
+		self.assertEqual(tr1, FTree("leaf"))
+		self.assertEqual(tr2, FTree("child2"))
+
+
+	def test_FTree_remove_subfolder(self):
+		tr = self.testtree.remove_subfolder("node")
+		self.assertEqual(tr, FTree('node', None, [FTree('leaf2')]))
+		self.assertFalse(self.testtree.remove_subfolder('node'))
 
 
 	def test_FTree_get_subfolder(self):
@@ -219,16 +251,17 @@ class test_fsf_objects(unittest.TestCase):
 					self.assertNotEqual(treelist[i], treelist[j])
 
 
-	def test_FTree_traverse_bottomup(self):
-		resultstring = ""
+	def test_FTree_num_subfolders(self):
+		self.assertEqual(self.testtree.num_subfolders(), 2)
+		self.assertEqual(FTree("tree2").num_subfolders(), 0)
+		self.assertEqual(FTree("tree3", subfolders=[FTree("subtree", cargo=13)]).num_subfolders(), 1)
 
-		def appendname(node):
-			nonlocal resultstring
-			resultstring += node.name + ' '
 
-		self.testtree.traverse_bottomup(appendname)
-		self.assertIn(resultstring, [	"leaf leaf2 node test-tree ",
-										"leaf2 node leaf test-tree ", ])
+	def test_FTree_is_leaf(self):
+		self.assertFalse(self.testtree.is_leaf())
+		self.assertTrue( self.testtree.get_subfolder("leaf").is_leaf())
+		self.assertFalse(self.testtree.get_subfolder("node").is_leaf())
+		self.assertTrue(self.testtree.get_subfolder("node").get_subfolder("leaf2").is_leaf())
 
 
 	def test_FTree_traverse_topdown(self):
@@ -241,6 +274,18 @@ class test_fsf_objects(unittest.TestCase):
 		self.testtree.traverse_topdown(appendname)
 		self.assertIn(resultstring, [	"test-tree leaf node leaf2 ",
 										"test-tree node leaf2 leaf", ])
+
+
+	def test_FTree_traverse_bottomup(self):
+		resultstring = ""
+
+		def appendname(node):
+			nonlocal resultstring
+			resultstring += node.name + ' '
+
+		self.testtree.traverse_bottomup(appendname)
+		self.assertIn(resultstring, [	"leaf leaf2 node test-tree ",
+										"leaf2 node leaf test-tree ", ])
 
 
 	def test_FTree___eq__(self):
@@ -279,57 +324,14 @@ class test_fsf_objects(unittest.TestCase):
 		self.assertFalse(tr6 != tr7)
 
 
-	def test_FTree_is_leaf(self):
-		self.assertFalse(self.testtree.is_leaf())
-		self.assertTrue( self.testtree.get_subfolder("leaf").is_leaf())
-		self.assertFalse(self.testtree.get_subfolder("node").is_leaf())
-		self.assertTrue(self.testtree.get_subfolder("node").get_subfolder("leaf2").is_leaf())
-
-
-	def test_FTree___repr__(self):
-		self.assertIn(self.testtree.__repr__(), [	"FTree('test-tree', 'CARGO', [FTree('leaf', 'CARGO2'), FTree('node', None, [FTree('leaf2')])])",
-													"FTree('test-tree', 'CARGO', [FTree('node', None, [FTree('leaf2')]), FTree('leaf', 'CARGO2')])"  ])
-
-
 	def test_FTree___str__(self):
 		self.assertIn(self.testtree.__str__(), [ 	"test-tree:\tCARGO\n   leaf:\tCARGO2\n   node\n      leaf2\n",
 		 											"test-tree:\tCARGO\n   node\n      leaf2\n   leaf:\tCARGO2\n"  ])
 
 
-	def test_FTree_remove_subfolder(self):
-		tr = self.testtree.remove_subfolder("node")
-		self.assertEqual(tr, FTree('node', None, [FTree('leaf2')]))
-		self.assertFalse(self.testtree.remove_subfolder('node'))
-
-
-	def test_FTree_append_subfolder(self):
-		self.testtree.append_subfolder( FTree("new_node", 23, [FTree("new_leaf"), FTree("new_leaf2")]))
-		self.testtree.append_subfolder( FTree("node", "NEW_CARGO"))
-
-		tr = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", "NEW_CARGO"), FTree("new_node", 23, [FTree("new_leaf"), FTree("new_leaf2")])])
-
-		self.assertEqual(self.testtree, tr)
-
-
-	def test_FTree_create_subfolder(self):
-		tr1 = self.testtree.create_subfolder("new_leaf")
-		tr2 = self.testtree.create_subfolder("node")
-
-		tr = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", subfolders=[FTree("leaf2")]), FTree("new_leaf")])
-
-		self.assertEqual(self.testtree, tr)
-		self.assertEqual(tr1, FTree("new_leaf"))
-		self.assertEqual(tr2, FTree("node", subfolders=[FTree("leaf2")]))
-
-
-	def test_FTree_create_branch(self):
-		tr = FTree("root")
-		tr1 = tr.create_branch(["node", "child", "leaf"])
-		tr2 = tr.create_branch(("node", "child2"))
-
-		self.assertEqual(tr, FTree("root", None, [FTree("node", None, [FTree("child", None, [FTree("leaf")]), FTree("child2")])]))
-		self.assertEqual(tr1, FTree("leaf"))
-		self.assertEqual(tr2, FTree("child2"))
+	def test_FTree___repr__(self):
+		self.assertIn(self.testtree.__repr__(), [	"FTree('test-tree', 'CARGO', [FTree('leaf', 'CARGO2'), FTree('node', None, [FTree('leaf2')])])",
+													"FTree('test-tree', 'CARGO', [FTree('node', None, [FTree('leaf2')]), FTree('leaf', 'CARGO2')])"  ])
 
 
 
