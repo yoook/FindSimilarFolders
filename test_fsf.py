@@ -166,6 +166,11 @@ class test_find_similar_folders_subroutines(unittest.TestCase):
 class test_fsf_objects_FTree(unittest.TestCase):
 	def setUp(self):
 		self.testtree = FTree("test-tree", cargo = "CARGO", subfolders=[FTree("leaf", "CARGO2"), FTree("node", subfolders=[FTree("leaf2")])])
+		# self.testtree now is:
+		#	test-tree:	CARGO
+		#		leaf:	CARGO2
+		#		node
+		#			leaf2
 
 
 	def test_FTree___init__(self):
@@ -201,16 +206,27 @@ class test_fsf_objects_FTree(unittest.TestCase):
 		tr = FTree("root")
 		tr1 = tr.create_branch(["node", "child", "leaf"])
 		tr2 = tr.create_branch(("node", "child2"))
+		tr3 = tr.create_branch(["node", "child"])
 
 		self.assertEqual(tr, FTree("root", None, [FTree("node", None, [FTree("child", None, [FTree("leaf")]), FTree("child2")])]))
 		self.assertEqual(tr1, FTree("leaf"))
 		self.assertEqual(tr2, FTree("child2"))
+		self.assertEqual(tr3, FTree("child", None, [FTree("leaf")]))
 
 
 	def test_FTree_remove_subfolder(self):
 		tr = self.testtree.remove_subfolder("node")
 		self.assertEqual(tr, FTree('node', None, [FTree('leaf2')]))
 		self.assertFalse(self.testtree.remove_subfolder('node'))
+
+
+	def test_FTree_get_parent(self):
+		tr1 = self.testtree.create_branch(["node"])
+		tr2 = self.testtree.create_branch(["node", "leaf2"])
+
+		self.assertIs(tr2.get_parent(), tr1)
+		self.assertIs(tr1.get_parent(), self.testtree)
+		self.assertEqual(self.testtree.get_parent(), None)
 
 
 	def test_FTree_get_subfolder(self):
@@ -230,6 +246,14 @@ class test_fsf_objects_FTree(unittest.TestCase):
 		self.assertEqual(t3.name, "leaf2")
 		self.assertEqual(t3.cargo, None)
 		self.assertEqual(t3.num_subfolders(), 0)
+
+
+	def test_FTree_get_by_path(self):
+		self.assertEqual(self.testtree.get_by_path([]), self.testtree)
+		self.assertEqual(self.testtree.get_by_path(["leaf"]).cargo, "CARGO2")
+		self.assertEqual(
+			self.testtree.get_by_path(("node", "leaf2")).name, "leaf2")
+		self.assertEqual(self.testtree.get_by_path(["leaf", "foo"]), None)
 
 
 	def test_FTree_iter_subfolders(self):
@@ -273,7 +297,7 @@ class test_fsf_objects_FTree(unittest.TestCase):
 
 		self.testtree.traverse_topdown(appendname)
 		self.assertIn(resultstring, [	"test-tree leaf node leaf2 ",
-										"test-tree node leaf2 leaf", ])
+										"test-tree node leaf2 leaf ", ])
 
 
 	def test_FTree_traverse_bottomup(self):
@@ -324,6 +348,10 @@ class test_fsf_objects_FTree(unittest.TestCase):
 		self.assertFalse(tr6 != tr7)
 
 
+	def test_FTree___contains__(self):
+		self.assertIn("leaf", self.testtree)
+		self.assertNotIn("leaf2", self.testtree)
+
 	def test_FTree___str__(self):
 		self.assertIn(self.testtree.__str__(), [ 	"test-tree:\tCARGO\n   leaf:\tCARGO2\n   node\n      leaf2\n",
 		 											"test-tree:\tCARGO\n   node\n      leaf2\n   leaf:\tCARGO2\n"  ])
@@ -334,32 +362,146 @@ class test_fsf_objects_FTree(unittest.TestCase):
 													"FTree('test-tree', 'CARGO', [FTree('node', None, [FTree('leaf2')]), FTree('leaf', 'CARGO2')])"  ])
 
 
-class test_fsf_opjects_FolderRefs(unittest.TestCase):
+class Test_fsf_objects_FTreeStat(unittest.TestCase):
 	def setUp(self):
-		self.testfolderref = FolderRefs(3, 5, {"a": 3, "b": 6}, {"c": 9, "d": 0})
+		self.filedict={
+			"11 h1": {"size": 11, "paths": [
+				("f1", "f4", "f9"),
+				("f1", "f4", "f10", "f12"),
+				("f1", "f5", "f11", "f13"),
+				("f2", "f6"),
+				("f2", "f7"),
+				]},
+			"22 h2": {"size": 22, "paths": [
+				("f2", ),
+				("f1", "f5", "f11")
+				]},
+			"33 h3": {"size": 33, "paths": [
+				("f2", "f6"),
+				("f1", "f5", "f11", "f13")
+				]},
+			"44 h4": {"size": 44, "paths": [
+				("f1", "f5", "f11", "f13", "f14")
+				]},
+			"55 h5": {"size": 55, "paths": [
+				("f3", "f8")
+				]}
+			}
+
+	def test_FTreeStat__init__(self):
+		tr = FTreeStat("root", [FTreeStat("leaf"), FTreeStat("leaf2", test=123)],
+						num_subfolders=5, testattribute="hello world")
+
+		self.assertEqual(tr.name, "root")
+		self.assertEqual(tr.get_subfolder("leaf").name, "leaf")
+		self.assertEqual(tr.get_subfolder("leaf2").cargo.test, 123)
+		self.assertEqual(tr.cargo.num_subfolders, 5)
+		self.assertEqual(tr.cargo.num_f_subfolders, 0)
+		self.assertEqual(tr.cargo.testattribute, "hello world")
 
 
-	def test_FolderRefs___init__(self):
-		self.assertEqual(self.testfolderref.nfiles, 3)
-		self.assertEqual(self.testfolderref.nsubfolders, 5)
-		self.assertEqual(self.testfolderref.file_dups, Counter({"a": 3, "b": 6}))
-		self.assertEqual(self.testfolderref.subfolder_dups, Counter({"c": 9, "d": 0}))
-		self.assertEqual(self.testfolderref.hidden_file_dups, Counter({}))
-		self.assertEqual(self.testfolderref.hidden_subfolder_dups, Counter({}))
+	def test_FTreeStat_add_hash(self):
+		tr = FTreeStat("root")
+		for hash, entry in self.filedict.items():
+			for path in entry["paths"]:
+				node = tr.create_branch(path)
+				node.add_hash(hash, entry["size"], entry["paths"])
+
+		# tr should now look like this [hashdict] {dup_candidates}
+		# 	root
+		# 	|--	f1
+		#	|	|--	f4
+		#	|	|	|--	f9			[h1] {f6, f7, f9, f12, f13}
+		#	|	|	|--	f10
+		#	|	|		|--	f12		[h1] {f6, f7, f9, f12, f13}
+		#	|	|--	f5
+		#	|		|--	f11			[h2] {f2, f11}
+		#	|			|--	f13		[h1, h3]  {f6, f7, f9, f12, f13}
+		#	|				|--	f14	[h4] {f14}
+		#	|--	f2					[h2] {f2, f11}
+		#	|	|--	f6				[h1, h3]  {f6, f7, f9, f12, f13}
+		#	|	|--	f7				[h1]  {f6, f7, f9, f12, f13}
+		#	|--	f3
+		#		|--	f8				[h5]  {f8}
+
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13", "f14")).cargo.hashdict,
+			{"44 h4": 44})
+		self.assertEqual(
+			tr.get_by_path(("f2", "f6")).cargo.hashdict,
+			{"11 h1": 11, "33 h3": 33})
+		self.assertEqual(
+			tr.get_by_path(("f1", "f4", "f10")).cargo.hashdict,
+			{})
+
+		self.assertEqual(
+			tr.get_by_path(("f2",)).cargo.dup_candidates,
+			set([("f2",), ("f1", "f5", "f11")]))
+		self.assertEqual(
+			tr.get_by_path(("f1", "f4", "f9")).cargo.dup_candidates,
+			set([("f2", "f6"), ("f2", "f7"),
+			     ("f1", "f4", "f9"), ("f1", "f4", "f10", "f12"),
+				 ("f1", "f5", "f11", "f13")]))
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13", "f14")).cargo.dup_candidates,
+			set([("f1", "f5", "f11", "f13", "f14")]))
+		self.assertEqual(
+			tr.get_by_path(("f1", "f4")).cargo.dup_candidates,
+			set())
 
 
-	def test_FolderRefs___str__(self):
-		self.assertIn(self.testfolderref.__str__(), [	"3, 5, {'a': 3, 'b': 6}, {'c': 9, 'd': 0}",
-														"3, 5, {'a': 3, 'b': 6}, {'d': 0, 'c': 9}",
-														"3, 5, {'b': 6, 'a': 3}, {'c': 9, 'd': 0}",
-														"3, 5, {'b': 6, 'a': 3}, {'d': 0, 'c': 9}"  ])
+	def test_FTreeStat_collect_stats_remove_uniques(self):
+		tr = FTreeStat("root")
+		for hash, entry in self.filedict.items():
+			for path in entry["paths"]:
+				node = tr.create_branch(path)
+				node.add_hash(hash, entry["size"], entry["paths"])
 
+		tr.traverse_bottomup(lambda node: node.collect_stats_remove_uniques())
 
-	def test_FolderRefs___repr__(self):
-		self.assertIn(self.testfolderref.__repr__(), [	"FolderRefs(3, 5, {'a': 3, 'b': 6}, {'c': 9, 'd': 0})",
-														"FolderRefs(3, 5, {'a': 3, 'b': 6}, {'d': 0, 'c': 9})",
-														"FolderRefs(3, 5, {'b': 6, 'a': 3}, {'c': 9, 'd': 0})",
-														"FolderRefs(3, 5, {'b': 6, 'a': 3}, {'d': 0, 'c': 9})"  ])
+		# tr should now look like this
+		#						 	num_subf / num_f_subf / size_subf / num_f_this / size_this
+		# 	root					3 / 11 / 264 / 0 / 0
+		# 	|--	f1					2 / 6 / 132 / 0 / 0
+		#	|	|--	f4				2 / 2 / 22  / 0 / 0
+		#	|	|	|--	f9			0 / 0 / 0	/ 1 / 11
+		#	|	|	|--	f10			1 / 1 / 11  / 0 / 0
+		#	|	|		|--	f12		0 / 0 / 0	/ 1 / 11
+		#	|	|--	f5				1 / 4 / 110 / 0 / 0
+		#	|		|--	f11			1 / 3 / 88	/ 1 / 22
+		#	|			|--	f13		1 / 1 / 44	/ 2 / 44
+		#	|				Xxx	f14 deleted (0 / 0 / 0 / 1 / 44)
+		#	|--	f2					2 / 3 / 55  / 1 / 22
+		#	|	|--	f6				0 / 0 / 0	/ 2 / 44
+		#	|	|--	f7				0 / 0 / 0	/ 1 / 11
+		#	Xxx	f3					deleted (1 / 1 / 55 / 0 / 0)
+		#		Xxx	f8				deleted (0 / 0 / 0 / 1 / 55)
+
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13", "f14")), None)
+		self.assertEqual(
+			tr.get_by_path(("f3", "f8")), None)
+		self.assertEqual(
+			tr.get_by_path(("f3",)), None)
+		self.assertEqual(
+			tr.cargo.num_subfolders, 3)
+		self.assertEqual(
+			tr.cargo.num_f_subfolders, 11)
+		self.assertEqual(
+			tr.cargo.size_subfolders, 264)
+		self.assertEqual(
+			tr.get_by_path(("f2",)).cargo.num_subfolders, 2)
+		self.assertEqual(
+			tr.get_by_path(("f2",)).cargo.num_f_subfolders, 3)
+		self.assertEqual(
+			tr.get_by_path(("f2",)).cargo.size_subfolders, 55)
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13")).cargo.num_subfolders, 1)
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13")).cargo.num_f_subfolders, 1)
+		self.assertEqual(
+			tr.get_by_path(("f1", "f5", "f11", "f13")).cargo.size_subfolders, 44)
+
 
 
 if __name__ == '__main__':

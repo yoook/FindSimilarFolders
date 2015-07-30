@@ -20,6 +20,8 @@ import hashlib
 import pathlib
 import sys
 
+
+
 from collections import namedtuple	# allow my lists to be more clearly structured
 
 from fsf_objects import FTreeStat
@@ -29,7 +31,9 @@ import resource					# for memory monitoring. might be removed later
 
 
 # define a data type for elements of the list of files # todo: might go to fsf_objects
-hpn = namedtuple('HashPathName', ['hash', 'path', 'filename'])
+#hpn = namedtuple('HashPathName', ['hash', 'path', 'filename'])
+from fsf_objects import hpn
+
 
 def _gethash(filename, blocksize=65536):
 	hasher=hashlib.sha1()
@@ -281,7 +285,7 @@ def _get_fileinfo(string):
 	splitstring = string.rstrip('\n').split('\t', 3)		# if for any reason the filename contains '\t', we don't have a problem ;-)
 	path = pathlib.PurePath(splitstring[3])
 
-	#		   size                           hash                    path (as tuple) filename
+	#		   size                           hash                    path (as tuple)  filename
 	return hpn(splitstring[0].strip() + ' ' + splitstring[2].strip(), path.parts[:-1], path.name)
 
 def _read_indexfiles(indexfiles, verbosity=1):	# todo: documentation
@@ -502,6 +506,15 @@ def measure_time(funcname, *opts, **args):
 	return ret
 
 
+def print_time_delta(t_old, t_new=None):
+	"""print the timedelta in an nice way, including the memory usage.
+	if t_new is not given, use NOW. return NOW"""
+	if t_new==None:
+		t_new = process_time()
+	print("\033[93m" + str(round(abs(t_new - t_old), 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+	return process_time()
+
+
 def find_similar_folders(indexfiles, outfile, verbosity=1):
 	""" read all indexfiles into one large list,
 	sort this list by the hashes and filesizes
@@ -589,7 +602,7 @@ def find_similar_folders(indexfiles, outfile, verbosity=1):
 
 
 # todo: whenever combining something: check, that list is long enough
-# todo: verbosity: defin/assign a level, where the number of datasets is shown
+# todo: verbosity: define/assign a level, where the number of datasets is shown
 
 def find_duplicate_files(indexfiles, outfile, verbosity=1):
 	""" read all indexfiles into one large list,
@@ -627,46 +640,68 @@ def find_duplicate_files(indexfiles, outfile, verbosity=1):
 
 
 def find_similar_trees(indexfiles, outfile, verbosity=1):
-	#todo : documentation
-
+	t = process_time()
 	filelist = _read_indexfiles(indexfiles, verbosity)
+	# todo: perhaps we can read directly to filedict and spare the filelist?
+	# todo: perhaps we do not need to collect the filenames as we do not need them
+	t = print_time_delta(t)
 
 	print("collecting duplicate files")
-	t0 = process_time()
+	t = process_time()
 
 	filedict = {}
 	for entry in filelist:
 		key = entry.hash
-		value = [(entry.path, entry.filename)]		# [(path, filename)]
+		value = [entry.path]
 		if key in filedict:
-			filedict[key].extend(value)
+			filedict[key]["paths"].append(entry.path) # todo: paths could be a set() as well
 		else:
-			filedict[key] = value
+			filedict[key] = {"size": int(entry.size), "paths": [entry.path]}
 
 
-	t1 = process_time()
-	print("\033[93m" + str(round(t1 - t0, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+	t = print_time_delta(t)
+
+	# filedict is a dictionary with "size<space>hash" as keys. each value is a dict with
+	# two elements: "size":  size of one file with this hash
+	#               "paths": list of paths  where files with this hash are found.
+	# for example
+	# "231325 af3e3277f23b4636": {"size": 1234, "paths": ["path/to/file1", "path/to/file2"...]}
 
 
-	# filedict is a dictionary with "size<space>hash" as keys. each value is a list of tupel, consisting of
-	# path and filename belonging to this size/hash, for example
-	# "231325 af3e3277f23b4636": [(path/to/file1, file1), (path/to/file2, file2), (path/to/file3, file3)...]
-
-	print("sorting filelist...")
-	filelist.sort(key=lambda x: x[1])		# sort by path
-	t2 = process_time()
-	print("\033[93m" + str(round(t2 - t1, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+# there should be no need for the filelist to be sorted!
+#	print("sorting filelist...")
+#	filelist.sort(key=lambda x: x[1])		# sort by path
+#	t = print_time_delta(t)
 
 	print("building filetree...")
 	filetree = FTreeStat('root')
-	for entry in filelist:
-		node = filetree.create_branch(entry.path)
-		node.add_count(filedict[entry.hash])
+	for entry in filelist:							# each entry represents one FILE
+		node = filetree.create_branch(entry.path)	# each node represents one FOLDER
+		node.add_hash(entry.hash, filedict[entry.hash]["size"], filedict[entry.hash]["paths"])
 
-	t3 = process_time()
-	print("\033[93m" + str(round(t3 - t2, 3)) + " s,  now " + str(round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 )) + " MB\033[0m")
+	# filetree is the root node of a tree. Each node contains a name, a list of
+	# subfolders and a Cargo object 'cargo'.
+	# cargo contains yet:
+	#   hashdict: dictionary with all hashes of files in this folder as key and
+	#             filesize as value
+	#   dup_candidates: list of nodes that might be candidats
+	#
+	# later, cargo will contain:
+	#   dup_confirmed: list of nodes that are confirmed dups. this nodes will be
+	#                  deleted from the dup_candidates
+	#   unique: bool: is this node entirely unique?
+	#   num_subfolders: number of direct subfolders
+	#                          this might differ from actual number of children,
+	#                          as some (unique) children will be removed later
+	#   num_f_subfolders: number of all files in all child nodes
+	#   size_subfolders: size of all files in all child nodes
 
-	print("removing folders with small similarity...")
-	filetree.traverse_bottomup(lambda node: node.remove_unsimilar())
 
-	print(filetree)
+	t = print_time_delta(t)
+
+	print("collecting stats and removing unique folders")
+	filetree.traverse_bottomup(lambda node: node.collect_stats_remove_uniques())
+	# todo: check, if removing the nodes is helpful at all
+
+	t = print_time_delta(t)
+	#print(filetree)
